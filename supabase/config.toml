@@ -1,0 +1,10 @@
+project_id = "srjzljruukiurghvfmwj"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.uazapi-webhook]
+verify_jwt = false
+
+[functions.notify-new-signup]
+verify_jwt = false
