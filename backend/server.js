@@ -13,8 +13,8 @@ app.listen(3000, () => {
 const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
-  "https://zbnkitesgcvkqbidwqmj.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpibmtpdGVzZ2N2a3FiaWR3cW1qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ2NzQxMSwiZXhwIjoyMDg4MDQzNDExfQ.Ynoy7GEviFrHHi4tIf9oTASodEmvhAkkql0CfLGMYR4" // IMPORTANTE: usar service role no backend
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // IMPORTANTE: usar service role no backend
 );
 
 app.post("/webhook/whatsapp", async (req, res) => {
@@ -73,13 +73,18 @@ app.post("/webhook/whatsapp", async (req, res) => {
 
       if (valor) {
         await supabase.from("expenses").insert({
-          entity_id: entityId,
+          entity_id: access.entity_id,
           user_id: user.id,
           description: descricao,
           amount: valor
         });
       }
     }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Erro ao processar webhook:", error);
+    res.sendStatus(500);
   }
 });
 
