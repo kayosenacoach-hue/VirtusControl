@@ -152,14 +152,15 @@ export function CreditCardStatementUpload({ onComplete }: CreditCardStatementUpl
   };
 
   const sendToAI = async (imageBase64: string, mimeType: string) => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-credit-card-statement`,
+      `${API_URL}/analyze-credit-card-statement`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
+    // ...
         body: JSON.stringify({
           imageBase64: imageBase64.split(',')[1] || imageBase64,
           mimeType,

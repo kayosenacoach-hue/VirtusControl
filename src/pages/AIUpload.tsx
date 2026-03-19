@@ -103,14 +103,15 @@ export default function AIUpload() {
       reader.readAsDataURL(file);
     });
 
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-document`,
+      `${API_URL}/analyze-document`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
+    // ...
         body: JSON.stringify({
           imageBase64: base64Data,
           mimeType: file.type,
