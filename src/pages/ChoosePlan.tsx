@@ -228,9 +228,12 @@ export default function ChoosePlan() {
           <Button
             variant="ghost"
             className="text-muted-foreground"
-            onClick={() => navigate('/dashboard')}
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate('/');
+            }}
           >
-            ← Voltar ao menu
+            ← Sair da conta
           </Button>
         </div>
 
@@ -263,9 +266,28 @@ export default function ChoosePlan() {
 
             {!showCardForm ? (
               <Button
-                onClick={() => setShowCardForm(true)}
+                onClick={async () => {
+                  if (!entityId) {
+                    toast.info('Sincronizando dados da conta...');
+                    // Tenta buscar a empresa novamente se tiver falhado no carregamento
+                    const { data } = await supabase
+                      .from('user_entity_access')
+                      .select('entity_id')
+                      .eq('user_id', user?.id)
+                      .limit(1)
+                      .maybeSingle();
+                    
+                    if (data?.entity_id) {
+                      setEntityId(data.entity_id);
+                      setShowCardForm(true);
+                    } else {
+                      toast.error('Erro de sincronização. Recarregue a página ou faça login novamente.');
+                    }
+                  } else {
+                    setShowCardForm(true);
+                  }
+                }}
                 className="w-full h-12 text-base"
-                disabled={!entityId}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Assinar agora
