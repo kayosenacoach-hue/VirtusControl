@@ -73,14 +73,24 @@ export default function Billing() {
     setCancelling(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('cancel-subscription', {
-        body: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/cancel-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionData.session?.access_token}`
+        },
+        body: JSON.stringify({
           subscriptionId: subscription.id,
           mercadoPagoSubscriptionId: subscription.mercado_pago_subscription_id,
-        },
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao cancelar assinatura');
+      }
 
       toast.success('Assinatura cancelada. Você mantém acesso até o fim do ciclo atual.');
       setSubscription((prev) => prev ? { ...prev, status: 'cancelled' } : null);

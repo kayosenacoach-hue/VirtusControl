@@ -158,16 +158,28 @@ export default function ChoosePlan() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('create-subscription', {
-        body: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionData.session?.access_token}`
+        },
+        body: JSON.stringify({
           entityId,
           planName: 'pro',
           price: 39,
           cardTokenId: formData.token,
-        },
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao processar assinatura');
+      }
+
+      const data = await response.json();
 
       if (data?.status === 'authorized' || data?.status === 'active') {
         toast.success('Assinatura criada com sucesso! Bem-vindo ao VirtusControl Pro.');
