@@ -15,7 +15,10 @@ export default function ChoosePlan() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuthContext();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [entityId, setEntityId] = useState<string | null>(null);
+  const entityIdRef = useRef<string | null>(null); // SOLUÇÃO: Ref para contornar o Stale Closure
+  
   const [showCardForm, setShowCardForm] = useState(false);
   const [mpReady, setMpReady] = useState(false);
   const cardFormRef = useRef<any>(null);
@@ -34,6 +37,7 @@ export default function ChoosePlan() {
 
       if (data) {
         setEntityId(data.entity_id);
+        entityIdRef.current = data.entity_id; // Atualiza a Ref
 
         const { data: sub } = await supabase
           .from('subscriptions')
@@ -143,7 +147,10 @@ export default function ChoosePlan() {
   }, [showCardForm, initMercadoPago]);
 
   const handleCardSubmit = async (cardForm: any) => {
-    if (!entityId) {
+    // Usa o valor da Ref para garantir que tem o ID mais recente!
+    const currentEntityId = entityIdRef.current || entityId;
+
+    if (!currentEntityId) {
       toast.error('Nenhuma empresa encontrada. Faça o cadastro primeiro.');
       return;
     }
@@ -167,7 +174,7 @@ export default function ChoosePlan() {
           'Authorization': `Bearer ${sessionData.session?.access_token}`
         },
         body: JSON.stringify({
-          entityId,
+          entityId: currentEntityId, // Usa a variável correta aqui
           planName: 'pro',
           price: 39,
           cardTokenId: formData.token,
@@ -267,7 +274,7 @@ export default function ChoosePlan() {
             {!showCardForm ? (
               <Button
                 onClick={async () => {
-                  if (!entityId) {
+                  if (!entityId && !entityIdRef.current) {
                     toast.info('Sincronizando dados da conta...');
                     // Tenta buscar a empresa novamente se tiver falhado no carregamento
                     const { data } = await supabase
@@ -279,6 +286,7 @@ export default function ChoosePlan() {
                     
                     if (data?.entity_id) {
                       setEntityId(data.entity_id);
+                      entityIdRef.current = data.entity_id; // Atualiza a Ref também aqui!
                       setShowCardForm(true);
                     } else {
                       toast.error('Erro de sincronização. Recarregue a página ou faça login novamente.');
