@@ -7,19 +7,26 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-// 1. CONFIGURAÇÃO CORS BLINDADA
-const corsOptions = {
-  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
-};
+app.use((req, res, next) => {
+  const allowedOrigins = ['https://virtuscontrol.com.br', 'http://localhost:5173'];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
-// ----------------------------------
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+// ----------------------------------------
 
-// Aumentámos o limite para 50mb...
 app.use(bodyParser.json({ limit: '50mb' }));
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;

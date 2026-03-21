@@ -15,12 +15,6 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    // Admins bypass subscription check
-    if (isAdmin) {
-      setStatus('active');
-      return;
-    }
-
     const checkSubscription = async () => {
       // Get user's entity
       const { data: access } = await supabase
