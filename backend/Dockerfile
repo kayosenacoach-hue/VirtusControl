@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Expor a porta que o servidor vai usar
-EXPOSE 3000
+EXPOSE 80
 
 # Comando direto para iniciar o servidor (evita o erro SIGTERM do npm)
 CMD ["node", "server.js"]
