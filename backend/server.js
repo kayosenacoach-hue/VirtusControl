@@ -128,7 +128,9 @@ app.post("/webhook/whatsapp", async (req, res) => {
 
     if (aiResponse && aiResponse.amount) {
       const { error: insertError } = await supabase.from("pending_whatsapp_expenses").insert({
-        entity_id: access.entity_id, user_id: user.id, extracted_data: aiResponse, media_url: mediaUrl, processed: false
+        phone: numero,
+        extracted_data: aiResponse,
+        file_url: mediaUrl || null
       });
       
       if (!insertError) {
