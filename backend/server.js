@@ -39,7 +39,7 @@ async function extractDataWithGemini(base64Image, textoAdicional, isImage, custo
   if (isImage && base64Image) parts.push({ inline_data: { mime_type: "image/jpeg", data: base64Image } });
 
   try {
-    const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, { contents: [{ parts: parts }] });
+    const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, { contents: [{ parts: parts }] });
     let textResponse = response.data.candidates[0].content.parts[0].text;
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(textResponse);
