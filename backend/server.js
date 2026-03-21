@@ -3,6 +3,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
+const crypto = require("crypto"); // <-- MOTOR DE CRIPTOGRAFIA ADICIONADO
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -28,6 +29,36 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const UAZAPI_URL = process.env.UAZAPI_URL; 
 const UAZAPI_API_KEY = process.env.UAZAPI_API_KEY;
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+// --- FUNÇÃO DE DESCRIPTOGRAFIA OFICIAL DO WHATSAPP ---
+async function downloadAndDecryptMedia(url, mediaKeyBase64, mimetype) {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const encryptedBuffer = Buffer.from(response.data);
+    const mediaKey = Buffer.from(mediaKeyBase64, 'base64');
+    
+    let infoString = 'WhatsApp Image Keys';
+    if (mimetype && (mimetype.includes('document') || mimetype.includes('pdf'))) {
+      infoString = 'WhatsApp Document Keys';
+    }
+    
+    const salt = Buffer.alloc(32); 
+    const expanded = crypto.hkdfSync('sha256', mediaKey, salt, Buffer.from(infoString), 112);
+    
+    const iv = expanded.subarray(0, 16);
+    const cipherKey = expanded.subarray(16, 48);
+    const fileData = encryptedBuffer.subarray(0, encryptedBuffer.length - 10);
+    
+    const decipher = crypto.createDecipheriv('aes-256-cbc', cipherKey, iv);
+    let decrypted = decipher.update(fileData);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    return decrypted.toString('base64');
+  } catch (err) {
+    console.error("❌ Erro na Criptografia Local:", err.message);
+    return null;
+  }
+}
 
 // --- FUNÇÕES DE INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
 async function extractDataWithGemini(base64Image, textoAdicional, isImage, customPrompt = null) {
@@ -102,41 +133,27 @@ app.post("/webhook/whatsapp", async (req, res) => {
     let aiResponse = null;
     const prompt = mensagem.trim().length > 0 ? mensagem : "Extraia os dados financeiros deste recibo/fatura. Se for impossível ler, avise.";
 
-    // 3. A CAÇA À IMAGEM (Verifica se é Mídia Criptografada da UAZAPI)
+    // 3. A CAÇA À IMAGEM (Verifica se é Mídia Criptografada)
     let encryptedMedia = data.message?.content || data.content || null;
     let base64Image = data.base64 || data.message?.base64 || null;
     let mediaUrl = data.mediaUrl || data.imageUrl || null;
 
     if (encryptedMedia && encryptedMedia.URL && encryptedMedia.mediaKey) {
-      console.log("📸 Mídia criptografada detectada! Solicitando descriptografia à UAZAPI...");
-      try {
-        const baseUrl = UAZAPI_URL.replace(/\/$/, ""); 
-        const downloadPayload = {
-          Url: encryptedMedia.URL,
-          Mimetype: encryptedMedia.mimetype,
-          FileSHA256: encryptedMedia.fileSHA256,
-          FileLength: encryptedMedia.fileLength,
-          MediaKey: encryptedMedia.mediaKey,
-          FileEncSHA256: encryptedMedia.fileEncSHA256
-        };
-
-        const downloadRes = await axios.post(`${baseUrl}/chat/downloadimage`, downloadPayload, {
-          headers: { 'token': UAZAPI_API_KEY, 'apikey': UAZAPI_API_KEY }
-        });
-
-        // O base64 pode vir de várias formas dependendo da versão da API
-        let fetchedBase64 = typeof downloadRes.data === 'string' ? downloadRes.data : downloadRes.data?.data || downloadRes.data?.base64;
-        
-        if (fetchedBase64) {
-          console.log("✅ Imagem descriptografada com sucesso! A enviar para o Gemini...");
-          const cleanBase64 = fetchedBase64.replace(/^data:image\/\w+;base64,/, "");
-          aiResponse = await extractDataWithGemini(cleanBase64, prompt, true);
-        } else {
-           console.log("❌ ERRO: A UAZAPI não retornou o Base64 esperado.");
-        }
-      } catch (e) {
-        console.log("❌ Erro ao baixar imagem da UAZAPI:", e.message);
+      console.log("📸 Imagem trancada detetada! A abrir a fechadura com criptografia...");
+      
+      let fetchedBase64 = await downloadAndDecryptMedia(
+        encryptedMedia.URL, 
+        encryptedMedia.mediaKey, 
+        encryptedMedia.mimetype || 'image/jpeg'
+      );
+      
+      if (fetchedBase64) {
+        console.log("🔓 Imagem desbloqueada com sucesso! A enviar para a IA...");
+        aiResponse = await extractDataWithGemini(fetchedBase64, prompt, true);
+      } else {
+         console.log("❌ ERRO: Falha ao desbloquear a imagem localmente.");
       }
+
     } else if (base64Image) {
       console.log("📸 Base64 direto encontrado!");
       const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
