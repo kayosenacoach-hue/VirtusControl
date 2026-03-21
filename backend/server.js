@@ -130,17 +130,24 @@ app.post("/webhook/whatsapp", async (req, res) => {
         console.log("✅ Despesa guardada no Supabase com sucesso!");
         if (UAZAPI_URL && UAZAPI_API_KEY) {
           try {
-            const instance = data.instanceName || "VirtusControl";
-            const baseUrl = UAZAPI_URL.replace(/\/$/, "");
-            const finalUrl = `${baseUrl}/message/sendText/${instance}`;
+            const baseUrl = UAZAPI_URL.replace(/\/$/, ""); 
+            const finalUrl = `${baseUrl}/send/text`;
             
-            await axios.post(finalUrl, 
-              { number: numero, text: `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}` }, 
-              { headers: { 'apikey': UAZAPI_API_KEY } }
-            );
+            const mensagemConfirmacao = `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}`;
+
+            await axios.post(finalUrl, {
+              number: numero,
+              text: mensagemConfirmacao,
+              textMessage: { text: mensagemConfirmacao }
+            }, { 
+              headers: { 
+                'token': UAZAPI_API_KEY,
+                'apikey': UAZAPI_API_KEY
+              } 
+            });
             console.log("✅ Confirmação enviada pro WhatsApp!");
           } catch(err) {
-            console.log("⚠️ Falha ao enviar confirmação (UAZAPI):", err.message);
+            console.log("⚠️ Falha ao enviar confirmação (UAZAPI):", err.message, err.response?.data);
           }
         }
       } else {
