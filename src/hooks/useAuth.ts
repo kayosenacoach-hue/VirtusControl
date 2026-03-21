@@ -27,7 +27,7 @@ export function useAuth() {
         
         if (data && mountedRef.current) {
           setProfile(data as Profile);
-          setIsAdmin(data.role === 'admin' || data.role === 'owner');
+          setIsAdmin(profile?.role === 'admin');
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
