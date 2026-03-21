@@ -59,14 +59,22 @@ app.post("/webhook/whatsapp", async (req, res) => {
     
     console.log("Payload Completo:", JSON.stringify(data, null, 2));
 
-    let rawNumber = data.from || data.phone || data.remoteJid || data.sender || "";
-    if (!rawNumber && data.data?.key?.remoteJid) rawNumber = data.data.key.remoteJid;
-    if (!rawNumber && data.messages?.[0]?.key?.remoteJid) rawNumber = data.messages[0].key.remoteJid;
-    if (!rawNumber && data.messages?.[0]?.from) rawNumber = data.messages[0].from;
-    if (!rawNumber && data.messages?.[0]?.remoteJid) rawNumber = data.messages[0].remoteJid;
-    if (!rawNumber && data.chat?.contact?.id) rawNumber = data.chat.contact.id;
-    if (!rawNumber && data.chat?.id && !isNaN(data.chat.id.replace(/\D/g, ""))) rawNumber = data.chat.id;
+    let rawNumber = "";
     
+    if (data.chat?.phone) {
+      rawNumber = data.chat.phone;
+    } else if (data.message?.chatid) {
+      rawNumber = data.message.chatid.split('@')[0];
+    } else if (data.chat?.wa_chatid) {
+      rawNumber = data.chat.wa_chatid.split('@')[0];
+    } else if (data.message?.sender_pn) {
+      rawNumber = data.message.sender_pn.split('@')[0];
+    } else if (data.data?.key?.remoteJid) {
+      rawNumber = data.data.key.remoteJid.split('@')[0];
+    } else if (data.messages?.[0]?.key?.remoteJid) {
+      rawNumber = data.messages[0].key.remoteJid.split('@')[0];
+    }
+
     const numero = String(rawNumber).replace(/\D/g, "");
 
     let mensagem = "";
