@@ -6,7 +6,13 @@ const fs = require("fs");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
-app.use(cors());
+
+// Configuração explícita do CORS para permitir o seu site
+app.use(cors({
+  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173', 'https://api.virtuscontrol.com.br'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Aumentámos o limite para 50mb para suportar imagens
 app.use(bodyParser.json({ limit: '50mb' }));
