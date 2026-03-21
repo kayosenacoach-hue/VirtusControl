@@ -7,17 +7,20 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-// 1. CORS UNIVERSAL (Abre todas as portas)
-app.use(cors());
+// --- CONFIGURAÇÃO CORS BLINDADA ---
+const corsOptions = {
+  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173'], // Quem pode entrar
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Que ações podem fazer
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'], // Que passes VIP aceitamos
+  credentials: true
+};
 
-// 2. ROTA DE TESTE (Para sabermos que o servidor não está morto)
-app.get("/", (req, res) => {
-  res.status(200).send("API DO VIRTUSCONTROL ESTÁ ONLINE E O CORS ESTÁ ATIVO! 🚀");
-});
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+// ----------------------------------
 
-// Aumentámos o limite para 50mb para suportar imagens
+// Aumentámos o limite para 50mb...
 app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const UAZAPI_URL = process.env.UAZAPI_URL; 
