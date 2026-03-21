@@ -103,6 +103,8 @@ export default function Dashboard() {
     };
   }, [filteredExpenses]);
 
+  const { show: showChecklist, dismiss: dismissChecklist } = useShowChecklist();
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -130,8 +132,6 @@ export default function Dashboard() {
       </MainLayout>
     );
   }
-
-  const { show: showChecklist, dismiss: dismissChecklist } = useShowChecklist();
 
   return (
     <MainLayout>
