@@ -7,11 +7,11 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-// --- CONFIGURAÇÃO CORS BLINDADA ---
+// 1. CONFIGURAÇÃO CORS BLINDADA
 const corsOptions = {
-  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173'], // Quem pode entrar
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Que ações podem fazer
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'], // Que passes VIP aceitamos
+  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
 };
 
