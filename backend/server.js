@@ -7,18 +7,13 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-// --- CORS DE FORÇA BRUTA (Garante que o navegador aceita a ligação) ---
-app.use(cors({ origin: '*' })); // Permite qualquer origem temporariamente
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
+// 1. CORS UNIVERSAL (Abre todas as portas)
+app.use(cors());
+
+// 2. ROTA DE TESTE (Para sabermos que o servidor não está morto)
+app.get("/", (req, res) => {
+  res.status(200).send("API DO VIRTUSCONTROL ESTÁ ONLINE E O CORS ESTÁ ATIVO! 🚀");
 });
-// ----------------------------------------------------------------------
 
 // Aumentámos o limite para 50mb para suportar imagens
 app.use(bodyParser.json({ limit: '50mb' }));
