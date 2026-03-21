@@ -7,21 +7,22 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-// Configuração explícita do CORS para permitir o seu site
-app.use(cors({
-  origin: ['https://virtuscontrol.com.br', 'http://localhost:5173', 'https://api.virtuscontrol.com.br'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// --- CORS DE FORÇA BRUTA (Garante que o navegador aceita a ligação) ---
+app.use(cors({ origin: '*' })); // Permite qualquer origem temporariamente
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+// ----------------------------------------------------------------------
 
 // Aumentámos o limite para 50mb para suportar imagens
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const UAZAPI_URL = process.env.UAZAPI_URL; 
