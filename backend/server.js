@@ -130,7 +130,10 @@ app.post("/webhook/whatsapp", async (req, res) => {
         console.log("✅ Despesa guardada no Supabase com sucesso!");
         if (UAZAPI_URL && UAZAPI_API_KEY) {
           try {
-            const finalUrl = UAZAPI_URL.endsWith('/') ? `${UAZAPI_URL}message/sendText` : `${UAZAPI_URL}/message/sendText`;
+            const instance = data.instanceName || "VirtusControl";
+            const baseUrl = UAZAPI_URL.replace(/\/$/, "");
+            const finalUrl = `${baseUrl}/message/sendText/${instance}`;
+            
             await axios.post(finalUrl, 
               { number: numero, text: `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}` }, 
               { headers: { 'apikey': UAZAPI_API_KEY } }
