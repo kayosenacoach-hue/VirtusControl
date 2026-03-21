@@ -60,7 +60,7 @@ app.post("/webhook/whatsapp", async (req, res) => {
   
   try {
     const data = req.body;
-    console.log("Payload Completo recebido (primeiros 400 chars):", JSON.stringify(data).substring(0, 400));
+    console.log("🔍 ESTRUTURA DA MENSAGEM:", JSON.stringify(data.message, null, 2));
 
     // 1. A CAÇA AO NÚMERO
     let rawNumber = "";
