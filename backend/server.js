@@ -60,7 +60,8 @@ app.post("/webhook/whatsapp", async (req, res) => {
   
   try {
     const data = req.body;
-    
+    console.log("Payload Completo recebido (primeiros 400 chars):", JSON.stringify(data).substring(0, 400));
+
     // 1. A CAÇA AO NÚMERO
     let rawNumber = "";
     if (data.chat?.phone) rawNumber = data.chat.phone;
@@ -72,21 +73,22 @@ app.post("/webhook/whatsapp", async (req, res) => {
 
     const numero = String(rawNumber).replace(/\D/g, "");
 
-    // 2. A CAÇA À MENSAGEM
+    // 2. A CAÇA À MENSAGEM (E legendas de fotos)
     let mensagem = "";
     if (typeof data.text === "string") mensagem = data.text;
     else if (typeof data.message === "string") mensagem = data.message;
     else if (data.message?.conversation) mensagem = data.message.conversation;
     else if (data.message?.extendedTextMessage?.text) mensagem = data.message.extendedTextMessage.text;
     else if (data.message?.text) mensagem = data.message.text;
+    else if (data.message?.caption) mensagem = data.message.caption;
     else if (data.messages?.[0]?.message?.conversation) mensagem = data.messages[0].message.conversation;
-    else if (data.messages?.[0]?.message?.extendedTextMessage?.text) mensagem = data.messages[0].message.extendedTextMessage.text;
-    else if (data.messages?.[0]?.text) mensagem = data.messages[0].text;
 
-    const mediaUrl = data.mediaUrl || data.imageUrl || data.documentUrl || data.messages?.[0]?.message?.imageMessage?.url || data.image || null;
+    // 3. A CAÇA À IMAGEM (URLs ou Base64 Direto da UAZAPI v2)
+    let base64Image = data.base64 || data.message?.base64 || data.mediaBase64 || null;
+    let mediaUrl = data.mediaUrl || data.imageUrl || data.documentUrl || data.message?.mediaUrl || null;
 
     console.log(`Numero extraído: ${numero}`);
-    console.log(`Mensagem extraída: ${mensagem}`);
+    console.log(`Mensagem/Legenda extraída: ${mensagem}`);
 
     if (!numero) {
       console.log("❌ ERRO: Não encontrei o número.");
@@ -103,19 +105,26 @@ app.post("/webhook/whatsapp", async (req, res) => {
     console.log(`✅ Utilizador encontrado: ${user.id}`);
 
     let aiResponse = null;
-    if (mediaUrl && mediaUrl !== "") {
-      console.log("📸 A baixar imagem do WhatsApp...");
+
+    // Processamento da Imagem ou Texto
+    if (base64Image) {
+      console.log("📸 Imagem recebida em formato Base64 direto da UAZAPI!");
+      const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
+      const prompt = mensagem.trim().length > 0 ? mensagem : "Extraia os dados financeiros deste recibo/fatura.";
+      aiResponse = await extractDataWithGemini(cleanBase64, prompt, true);
+    } else if (mediaUrl && mediaUrl !== "") {
+      console.log("📸 A baixar imagem do WhatsApp (URL)...");
       const response = await axios({ url: mediaUrl, method: "GET", responseType: "stream" });
       const writer = fs.createWriteStream(path);
       response.data.pipe(writer);
       await new Promise((resolve, reject) => { writer.on("finish", resolve); writer.on("error", reject); });
-      const base64Image = fs.readFileSync(path, { encoding: 'base64' });
-      aiResponse = await extractDataWithGemini(base64Image, mensagem, true);
+      const downloadedBase64 = fs.readFileSync(path, { encoding: 'base64' });
+      const prompt = mensagem.trim().length > 0 ? mensagem : "Extraia os dados financeiros deste recibo/fatura.";
+      aiResponse = await extractDataWithGemini(downloadedBase64, prompt, true);
     } else if (mensagem.trim().length > 0) {
+      console.log("A enviar texto para o Gemini...");
       aiResponse = await extractDataWithGemini(null, mensagem, false);
     }
-
-    console.log("🧠 Dados extraídos pela IA:", aiResponse);
 
     if (aiResponse && aiResponse.amount) {
       console.log("💾 A guardar despesa no Supabase...");
@@ -123,7 +132,7 @@ app.post("/webhook/whatsapp", async (req, res) => {
       const { error: insertError } = await supabase.from("pending_whatsapp_expenses").insert({
         phone: numero,
         extracted_data: aiResponse,
-        file_url: mediaUrl || null
+        file_url: mediaUrl || null 
       });
       
       if (!insertError) {
@@ -132,7 +141,6 @@ app.post("/webhook/whatsapp", async (req, res) => {
           try {
             const baseUrl = UAZAPI_URL.replace(/\/$/, ""); 
             const finalUrl = `${baseUrl}/send/text`;
-            
             const mensagemConfirmacao = `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}`;
 
             await axios.post(finalUrl, {
@@ -140,18 +148,15 @@ app.post("/webhook/whatsapp", async (req, res) => {
               text: mensagemConfirmacao,
               textMessage: { text: mensagemConfirmacao }
             }, { 
-              headers: { 
-                'token': UAZAPI_API_KEY,
-                'apikey': UAZAPI_API_KEY
-              } 
+              headers: { 'token': UAZAPI_API_KEY, 'apikey': UAZAPI_API_KEY } 
             });
             console.log("✅ Confirmação enviada pro WhatsApp!");
           } catch(err) {
-            console.log("⚠️ Falha ao enviar confirmação (UAZAPI):", err.message, err.response?.data);
+            console.log("⚠️ Falha ao enviar confirmação (UAZAPI):", err.message);
           }
         }
       } else {
-         console.log("❌ ERRO NO SUPABASE:", insertError.message, insertError.details);
+         console.log("❌ ERRO NO SUPABASE:", insertError.message);
       }
     } else {
       console.log("❌ ERRO: A IA não encontrou valor ou falhou.");
