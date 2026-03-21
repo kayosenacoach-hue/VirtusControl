@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const axios = require("axios");
 const fs = require("fs");
-const crypto = require("crypto"); // <-- MOTOR DE CRIPTOGRAFIA ADICIONADO
+const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -30,7 +30,7 @@ const UAZAPI_URL = process.env.UAZAPI_URL;
 const UAZAPI_API_KEY = process.env.UAZAPI_API_KEY;
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
-// --- FUNÇÃO DE DESCRIPTOGRAFIA OFICIAL DO WHATSAPP ---
+// --- FUNÇÃO DE DESCRIPTOGRAFIA OFICIAL DO WHATSAPP (CORRIGIDA) ---
 async function downloadAndDecryptMedia(url, mediaKeyBase64, mimetype) {
   try {
     const response = await axios.get(url, { responseType: 'arraybuffer' });
@@ -38,15 +38,20 @@ async function downloadAndDecryptMedia(url, mediaKeyBase64, mimetype) {
     const mediaKey = Buffer.from(mediaKeyBase64, 'base64');
     
     let infoString = 'WhatsApp Image Keys';
-    if (mimetype && (mimetype.includes('document') || mimetype.includes('pdf'))) {
-      infoString = 'WhatsApp Document Keys';
+    if (mimetype) {
+      if (mimetype.includes('document') || mimetype.includes('pdf')) infoString = 'WhatsApp Document Keys';
+      else if (mimetype.includes('video')) infoString = 'WhatsApp Video Keys';
+      else if (mimetype.includes('audio')) infoString = 'WhatsApp Audio Keys';
     }
     
     const salt = Buffer.alloc(32); 
-    const expanded = crypto.hkdfSync('sha256', mediaKey, salt, Buffer.from(infoString), 112);
     
-    const iv = expanded.subarray(0, 16);
-    const cipherKey = expanded.subarray(16, 48);
+    // O Node.js devolve um ArrayBuffer, embrulhamos num Buffer.from() para usar o subarray
+    const hkdfResult = crypto.hkdfSync('sha256', mediaKey, salt, Buffer.from(infoString), 112);
+    const expandedBuffer = Buffer.from(hkdfResult);
+    
+    const iv = expandedBuffer.subarray(0, 16);
+    const cipherKey = expandedBuffer.subarray(16, 48);
     const fileData = encryptedBuffer.subarray(0, encryptedBuffer.length - 10);
     
     const decipher = crypto.createDecipheriv('aes-256-cbc', cipherKey, iv);
