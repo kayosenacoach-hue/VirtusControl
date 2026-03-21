@@ -1,25 +1,22 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const cors = require("cors");
+const cors = require("cors"); // Certifique-se de que isto está aqui
 const axios = require("axios");
 const fs = require("fs");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://virtuscontrol.com.br");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  
-  next();
+app.get("/", (req, res) => {
+  res.status(200).send("API DO VIRTUSCONTROL ESTÁ ONLINE E O CORS ESTÁ ATIVO! 🚀");
 });
-// ==========================================
 
 app.use(bodyParser.json({ limit: '50mb' }));
 
