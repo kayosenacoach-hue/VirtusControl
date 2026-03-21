@@ -27,7 +27,8 @@ export function useAuth() {
         
         if (data && mountedRef.current) {
           setProfile(data as Profile);
-          setIsAdmin(profile?.role === 'admin');
+          // CORREÇÃO 1: Usar o 'data' recém-chegado em vez da variável de estado 'profile'
+          setIsAdmin(data.role === 'admin' || data.role === 'owner');
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -51,7 +52,6 @@ export function useAuth() {
           localStorage.removeItem('pendingOnboarding');
           toast.success('Empresa criada com sucesso!');
           
-          // Send WhatsApp notifications (fire and forget)
           supabase.functions.invoke('notify-new-signup', {
             body: {
               userName: userName || companyName,
@@ -70,29 +70,31 @@ export function useAuth() {
       setSession(sessionData);
       setUser(sessionData?.user ?? null);
       if (sessionData?.user) {
+        // CORREÇÃO 2A: Garante que a tela de loading continua enquanto busca o perfil
+        setIsLoading(true);
         await fetchProfile(sessionData.user.id);
         await runPendingOnboarding();
       }
       if (mountedRef.current) setIsLoading(false);
     };
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       initSession(session);
     });
 
-    // Listen for auth changes (no await inside callback)
+    // CORREÇÃO 2B: Transforma o callback num processo Async e controla o estado de loading
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         if (!mountedRef.current) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          setTimeout(() => {
-            if (!mountedRef.current) return;
-            fetchProfile(session.user.id).then(() => runPendingOnboarding());
-          }, 0);
+          setIsLoading(true); // Bloqueia as rotas (Guards) até sabermos quem é o utilizador
+          await fetchProfile(session.user.id);
+          await runPendingOnboarding();
+          if (mountedRef.current) setIsLoading(false); // Liberta as rotas com os poderes certos!
         } else {
           setProfile(null);
           setIsAdmin(false);
