@@ -51,23 +51,47 @@ async function extractDataWithGemini(base64Image, textoAdicional, isImage, custo
 
 // --- ROTA: WEBHOOK DO WHATSAPP ---
 app.post("/webhook/whatsapp", async (req, res) => {
+  console.log("\n=== NOVO WEBHOOK WHATSAPP RECEBIDO ===");
+  
   const path = `./temp_${Date.now()}.jpg`;
   try {
     const data = req.body;
-    const numero = data.from || data.phone || data.remoteJid?.replace(/\D/g, "") || data.data?.remoteJid?.replace(/\D/g, "");
-    const mensagem = data.text || data.message || data.data?.message?.conversation || "";
+    console.log("Payload:", JSON.stringify(data).substring(0, 400));
+
+    const rawNumber = data.from || data.phone || data.remoteJid || data.data?.remoteJid || data.data?.key?.remoteJid || data.sender || "";
+    const numero = rawNumber.replace(/\D/g, "");
+    
+    const mensagem = data.text || data.message || data.data?.message?.conversation || data.data?.message?.extendedTextMessage?.text || "";
     const mediaUrl = data.mediaUrl || data.imageUrl || data.documentUrl || data.data?.message?.imageMessage?.url || null;
 
-    if (!numero) return res.sendStatus(200);
+    console.log(`Numero extraído: ${numero}`);
+    console.log(`Mensagem extraída: ${mensagem}`);
 
-    const { data: user } = await supabase.from("profiles").select("*").eq("whatsapp_number", numero).single();
-    if (!user) return res.sendStatus(200);
+    if (!numero) {
+      console.log("❌ ERRO: O Payload não contém um número de remetente identificável.");
+      return res.sendStatus(200);
+    }
 
-    const { data: access } = await supabase.from("user_entity_access").select("entity_id").eq("user_id", user.id).single();
-    if (!access) return res.sendStatus(200);
+    console.log(`Buscando utilizador com o número: ${numero}`);
+    const { data: user, error: userError } = await supabase.from("profiles").select("*").eq("whatsapp_number", numero).single();
+    
+    if (userError) console.log("Erro na BD (Profile):", userError.message);
+    if (!user) {
+      console.log("❌ ERRO: Número não encontrado na base de dados do VirtusControl.");
+      return res.sendStatus(200);
+    }
+    console.log(`✅ Utilizador encontrado: ${user.id}`);
+
+    const { data: access, error: accessError } = await supabase.from("user_entity_access").select("entity_id").eq("user_id", user.id).single();
+    if (accessError) console.log("Erro na BD (Access):", accessError.message);
+    if (!access) {
+      console.log("❌ ERRO: Este utilizador não tem nenhuma entidade (empresa) vinculada.");
+      return res.sendStatus(200);
+    }
 
     let aiResponse = null;
     if (mediaUrl) {
+      console.log("A processar imagem...");
       const response = await axios({ url: mediaUrl, method: "GET", responseType: "stream" });
       const writer = fs.createWriteStream(path);
       response.data.pipe(writer);
@@ -75,19 +99,45 @@ app.post("/webhook/whatsapp", async (req, res) => {
       const base64Image = fs.readFileSync(path, { encoding: 'base64' });
       aiResponse = await extractDataWithGemini(base64Image, mensagem, true);
     } else if (mensagem.trim().length > 0) {
+      console.log("A enviar texto para o Gemini extrair os dados...");
       aiResponse = await extractDataWithGemini(null, mensagem, false);
+    } else {
+      console.log("❌ ERRO: O webhook não trouxe nem texto nem imagem para processar.");
     }
 
     if (aiResponse && aiResponse.amount) {
-      await supabase.from("pending_whatsapp_expenses").insert({
+      console.log("A guardar despesa na Base de Dados...");
+      const { error: insertError } = await supabase.from("pending_whatsapp_expenses").insert({
         entity_id: access.entity_id, user_id: user.id, extracted_data: aiResponse, media_url: mediaUrl, processed: false
       });
-      if(UAZAPI_URL && UAZAPI_API_KEY) {
-        await axios.post(`${UAZAPI_URL}/message/sendText`, { number: numero, text: `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}` }, { headers: { 'apikey': UAZAPI_API_KEY } });
+      
+      if (insertError) {
+        console.log("❌ ERRO ao guardar despesa:", insertError.message);
+      } else {
+        console.log("✅ Despesa guardada no sistema com sucesso!");
+        
+        if (UAZAPI_URL && UAZAPI_API_KEY) {
+          try {
+            const finalUrl = UAZAPI_URL.endsWith('/') ? `${UAZAPI_URL}message/sendText` : `${UAZAPI_URL}/message/sendText`;
+            await axios.post(finalUrl, 
+              { number: numero, text: `✅ Despesa Registada!\n💰 Valor: R$ ${aiResponse.amount.toFixed(2)}\n📝 ${aiResponse.description}` }, 
+              { headers: { 'apikey': UAZAPI_API_KEY } }
+            );
+            console.log("✅ Confirmação enviada pro WhatsApp do cliente.");
+          } catch(err) {
+            console.log("⚠️ Falha ao tentar enviar confirmação pro WhatsApp (UAZAPI):", err.message);
+          }
+        } else {
+          console.log("⚠️ Confirmação não enviada: Faltam variáveis da UAZAPI no Easypanel.");
+        }
       }
+    } else {
+      console.log("❌ ERRO: O Gemini não conseguiu encontrar um valor financeiro (amount) na mensagem.");
     }
+    
     res.sendStatus(200);
   } catch (error) {
+    console.error("❌ ERRO FATAL NO WEBHOOK:", error);
     res.sendStatus(500);
   } finally {
     if (fs.existsSync(path)) fs.unlinkSync(path);
