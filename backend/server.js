@@ -16,7 +16,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('/(.*)', cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 // ----------------------------------
 
 // Aumentámos o limite para 50mb...
