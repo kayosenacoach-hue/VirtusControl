@@ -1,6 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const cors = require("cors"); // Certifique-se de que isto está aqui
+const cors = require("cors"); 
 const axios = require("axios");
 const fs = require("fs");
 const { createClient } = require("@supabase/supabase-js");
@@ -20,10 +20,15 @@ app.get("/", (req, res) => {
 
 app.use(bodyParser.json({ limit: '50mb' }));
 
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const UAZAPI_URL = process.env.UAZAPI_URL; 
 const UAZAPI_API_KEY = process.env.UAZAPI_API_KEY;
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
 
 // --- FUNÇÕES DE INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
 async function extractDataWithGemini(base64Image, textoAdicional, isImage, customPrompt = null) {
