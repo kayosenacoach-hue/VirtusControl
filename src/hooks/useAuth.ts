@@ -8,98 +8,78 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Começa a carregar por padrão
   const [isAdmin, setIsAdmin] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    const fetchProfile = async (userId: string) => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (error) throw error;
-        
-        if (data && mountedRef.current) {
-          setProfile(data as Profile);
-          // CORREÇÃO 1: Usar o 'data' recém-chegado em vez da variável de estado 'profile'
-          setIsAdmin(data.role === 'admin' || data.role === 'owner');
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      }
-    };
-
-    const runPendingOnboarding = async () => {
-      const pending = localStorage.getItem('pendingOnboarding');
-      if (!pending) return;
-      
-      try {
-        const { companyName, whatsappNumber, userName } = JSON.parse(pending);
-        const { error } = await supabase.rpc('onboard_new_user', {
-          _company_name: companyName,
-          _whatsapp_number: whatsappNumber,
-        });
-        
-        if (error) {
-          console.error('Pending onboarding error:', error);
-        } else {
-          localStorage.removeItem('pendingOnboarding');
-          toast.success('Empresa criada com sucesso!');
-          
-          supabase.functions.invoke('notify-new-signup', {
-            body: {
-              userName: userName || companyName,
-              userPhone: whatsappNumber,
-              companyName: companyName,
-            },
-          }).catch((err) => console.error('Notification error:', err));
-        }
-      } catch (e) {
-        console.error('Error running pending onboarding:', e);
-      }
-    };
-
-    const initSession = async (sessionData: Session | null) => {
+    const loadUserData = async (currentSession: Session | null) => {
       if (!mountedRef.current) return;
-      setSession(sessionData);
-      setUser(sessionData?.user ?? null);
-      if (sessionData?.user) {
-        // CORREÇÃO 2A: Garante que a tela de loading continua enquanto busca o perfil
-        setIsLoading(true);
-        await fetchProfile(sessionData.user.id);
-        await runPendingOnboarding();
-      }
-      if (mountedRef.current) setIsLoading(false);
-    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      initSession(session);
-    });
+      try {
+        // Bloqueia a tela enquanto atualiza dados se já estivermos logados
+        if (currentSession?.user && !isLoading) setIsLoading(true);
 
-    // CORREÇÃO 2B: Transforma o callback num processo Async e controla o estado de loading
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mountedRef.current) return;
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setIsLoading(true); // Bloqueia as rotas (Guards) até sabermos quem é o utilizador
-          await fetchProfile(session.user.id);
-          await runPendingOnboarding();
-          if (mountedRef.current) setIsLoading(false); // Liberta as rotas com os poderes certos!
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          // 1. Vai buscar o Perfil
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .maybeSingle();
+
+          if (!error && data && mountedRef.current) {
+            setProfile(data as Profile);
+            setIsAdmin(data.role === 'admin' || data.role === 'owner');
+          }
+
+          // 2. Tenta fazer o onboarding pendente (se existir)
+          const pending = localStorage.getItem('pendingOnboarding');
+          if (pending) {
+            const { companyName, whatsappNumber, userName } = JSON.parse(pending);
+            const { error: obError } = await supabase.rpc('onboard_new_user', {
+              _company_name: companyName,
+              _whatsapp_number: whatsappNumber,
+            });
+            
+            if (!obError) {
+              localStorage.removeItem('pendingOnboarding');
+              toast.success('Empresa criada com sucesso!');
+              // Notificação silenciosa
+              supabase.functions.invoke('notify-new-signup', {
+                body: { userName: userName || companyName, userPhone: whatsappNumber, companyName },
+              }).catch(() => {});
+            }
+          }
         } else {
+          // Sem sessão (Logout ou visitante)
           setProfile(null);
           setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error('Erro silencioso na Autenticação:', err);
+      } finally {
+        // GARANTIA ABSOLUTA: Independentemente de sucesso ou erro, destranca o loading!
+        if (mountedRef.current) {
           setIsLoading(false);
         }
+      }
+    };
+
+    // Arranque inicial: Vê se tem sessão guardada
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadUserData(session);
+    });
+
+    // "Ouve" as mudanças (Login, Logout, etc)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        loadUserData(session);
       }
     );
 
@@ -112,15 +92,9 @@ export function useAuth() {
   const signUp = async (email: string, password: string, fullName: string, role: AppRole = 'employee') => {
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { full_name: fullName, role },
-        },
+        email, password, options: { data: { full_name: fullName, role } },
       });
       if (error) throw error;
-      toast.success('Conta criada com sucesso!');
       return data;
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar conta');
@@ -142,10 +116,7 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) throw error;
-    } catch (error: any) {
-      console.warn('Sign out error:', error.message);
+      await supabase.auth.signOut({ scope: 'local' });
     } finally {
       setUser(null);
       setProfile(null);
