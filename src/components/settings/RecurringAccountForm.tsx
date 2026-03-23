@@ -26,7 +26,6 @@ import { ExpenseCategory, CATEGORY_LABELS } from '@/types/expense';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { Building2, User } from 'lucide-react';
 
-// Esquema Zod "Blindado" contra vírgulas e vazios
 const accountFormSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
@@ -102,14 +101,21 @@ export function RecurringAccountForm({
     form.reset();
   };
 
-  // Se o formulário falhar, ele vai avisar exatamente qual foi o campo aqui no Console (F12)
   const handleError = (errors: any) => {
-    console.error("ERRO DE VALIDAÇÃO DO FORMULÁRIO (Frontend):", errors);
+    console.error("Erro no formulário:", errors);
+  };
+
+  // A MÁGICA ESTÁ AQUI: Esta função impede o navegador de dar reload à página!
+  const onSafeSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    form.handleSubmit(handleSubmit, handleError)(e);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit, handleError)} className="space-y-6">
+      {/* Usamos o onSafeSubmit em vez do padrão do form */}
+      <form onSubmit={onSafeSubmit} className="space-y-6">
         <FormField
           control={form.control}
           name="name"
@@ -118,6 +124,7 @@ export function RecurringAccountForm({
               <FormLabel>Nome da Conta *</FormLabel>
               <FormControl>
                 <Input
+                  id="account-name"
                   placeholder="Ex: Conta de Energia, Internet, Aluguel"
                   {...field}
                   className="h-11"
@@ -137,7 +144,7 @@ export function RecurringAccountForm({
                 <FormLabel>Categoria *</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger id="account-category" className="h-11">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                   </FormControl>
@@ -162,7 +169,7 @@ export function RecurringAccountForm({
                 <FormLabel>Recorrência *</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger id="account-recurrence" className="h-11">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                   </FormControl>
@@ -189,7 +196,7 @@ export function RecurringAccountForm({
                 <FormLabel>Empresa/Pessoa (opcional)</FormLabel>
                 <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'}>
                   <FormControl>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger id="account-entity" className="h-11">
                       <SelectValue placeholder="Todas as entidades" />
                     </SelectTrigger>
                   </FormControl>
@@ -229,6 +236,7 @@ export function RecurringAccountForm({
                   <FormLabel>Dia de Vencimento</FormLabel>
                   <FormControl>
                     <Input
+                      id="account-day"
                       type="text"
                       placeholder="Ex: 10"
                       {...field}
@@ -251,6 +259,7 @@ export function RecurringAccountForm({
                 <FormLabel>Valor Médio (R$)</FormLabel>
                 <FormControl>
                   <Input
+                    id="account-amount"
                     type="text"
                     placeholder="0,00"
                     {...field}
@@ -273,6 +282,7 @@ export function RecurringAccountForm({
               <FormLabel>Observações</FormLabel>
               <FormControl>
                 <Textarea
+                  id="account-notes"
                   placeholder="Informações adicionais..."
                   className="resize-none"
                   {...field}
@@ -297,6 +307,7 @@ export function RecurringAccountForm({
               </div>
               <FormControl>
                 <Switch
+                  id="account-active"
                   checked={field.value}
                   onCheckedChange={field.onChange}
                 />

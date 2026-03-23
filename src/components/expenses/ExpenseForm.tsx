@@ -112,9 +112,15 @@ export function ExpenseForm({
     form.reset();
   };
 
+  const onSafeSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    form.handleSubmit(handleSubmit)(e);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={onSafeSubmit} className="space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
