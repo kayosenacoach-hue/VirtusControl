@@ -24,16 +24,22 @@ import { Switch } from '@/components/ui/switch';
 import { RecurringAccount, RecurrenceType, RECURRENCE_LABELS } from '@/types/recurring';
 import { ExpenseCategory, CATEGORY_LABELS } from '@/types/expense';
 import { useEntityContext } from '@/contexts/EntityContext';
-import { formatDocument } from '@/types/entity';
 import { Building2, User } from 'lucide-react';
 
+// CORREÇÃO: Usando preprocess para evitar que campos vazios virem '0'
 const accountFormSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
   entityId: z.string().optional(),
   recurrence: z.enum(['pontual', 'mensal', 'semanal', 'quinzenal', 'anual'] as const),
-  expectedDay: z.coerce.number().min(1).max(31).optional(),
-  averageAmount: z.coerce.number().min(0).optional(),
+  expectedDay: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(1, 'Mínimo 1').max(31, 'Máximo 31').optional()
+  ),
+  averageAmount: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0, 'O valor não pode ser negativo').optional()
+  ),
   notes: z.string().max(500, 'Máximo 500 caracteres').optional(),
   isActive: z.boolean(),
 });
@@ -212,6 +218,8 @@ export function RecurringAccountForm({
                       max="31"
                       placeholder="Ex: 10"
                       {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value)}
                       className="h-11"
                     />
                   </FormControl>
@@ -234,6 +242,8 @@ export function RecurringAccountForm({
                     min="0"
                     placeholder="0,00"
                     {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value)}
                     className="h-11"
                   />
                 </FormControl>
@@ -254,6 +264,7 @@ export function RecurringAccountForm({
                   placeholder="Informações adicionais..."
                   className="resize-none"
                   {...field}
+                  value={field.value ?? ''}
                 />
               </FormControl>
               <FormMessage />
