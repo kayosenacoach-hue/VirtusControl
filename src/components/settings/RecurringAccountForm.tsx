@@ -115,7 +115,7 @@ export function RecurringAccountForm({
   return (
     <Form {...form}>
       {/* Usamos o onSafeSubmit em vez do padrão do form */}
-      <form onSubmit={onSafeSubmit} className="space-y-6">
+      <form className="space-y-6">
         <FormField
           control={form.control}
           name="name"
@@ -317,7 +317,8 @@ export function RecurringAccountForm({
         />
 
         <Button 
-          type="submit" 
+          type="button" 
+          onClick={form.handleSubmit(handleSubmit, handleError)}
           className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90 transition-opacity"
           disabled={isLoading}
         >

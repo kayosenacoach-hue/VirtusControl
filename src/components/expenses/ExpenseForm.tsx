@@ -97,6 +97,10 @@ export function ExpenseForm({
     },
   });
 
+  const handleError = (errors: any) => {
+    console.error("Erro no formulário:", errors);
+  };
+
   const handleSubmit = async (values: ExpenseFormValues) => {
     await onSubmit({
       description: values.description,
@@ -120,7 +124,7 @@ export function ExpenseForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={onSafeSubmit} className="space-y-6">
+      <form className="space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -361,7 +365,8 @@ export function ExpenseForm({
         </div>
 
         <Button 
-          type="submit" 
+          type="button" 
+          onClick={form.handleSubmit(handleSubmit, handleError)}
           className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90 transition-opacity"
           disabled={isLoading}
         >

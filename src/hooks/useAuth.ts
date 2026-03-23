@@ -123,6 +123,9 @@ export function useAuth() {
       setSession(null);
       setIsAdmin(false);
       toast.success('Logout realizado!');
+      
+      // ADICIONE ESTA LINHA PARA DESTRUIR O CACHE:
+      window.location.replace('/auth');
     }
   };
 
