@@ -89,7 +89,7 @@ export function useAuth() {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string, role: AppRole = 'employee') => {
+  const signUp = async (email: string, password: string, fullName: string, role: AppRole = 'owner') => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email, password, options: { data: { full_name: fullName, role } },
