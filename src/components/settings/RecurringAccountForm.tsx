@@ -26,6 +26,7 @@ import { ExpenseCategory, CATEGORY_LABELS } from '@/types/expense';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { Building2, User } from 'lucide-react';
 
+// Esquema Zod "Blindado" contra vírgulas e campos em branco
 const accountFormSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
@@ -88,34 +89,32 @@ export function RecurringAccountForm({
   const selectedRecurrence = form.watch('recurrence');
 
   const handleSubmit = async (values: AccountFormValues) => {
-    await onSubmit({
-      name: values.name,
-      category: values.category,
-      entityId: values.entityId || undefined,
-      recurrence: values.recurrence,
-      expectedDay: values.expectedDay || undefined,
-      averageAmount: values.averageAmount || undefined,
-      notes: values.notes || undefined,
-      isActive: values.isActive,
-    });
-    form.reset();
+    try {
+      await onSubmit({
+        name: values.name,
+        category: values.category,
+        entityId: values.entityId || undefined,
+        recurrence: values.recurrence,
+        expectedDay: values.expectedDay || undefined,
+        averageAmount: values.averageAmount || undefined,
+        notes: values.notes || undefined,
+        isActive: values.isActive,
+      });
+      form.reset();
+    } catch (error) {
+      console.error("ERRO AO ENVIAR PARA O SUPABASE:", error);
+    }
   };
 
+  // Se faltar algum campo, o erro vai aparecer no seu F12 Console
   const handleError = (errors: any) => {
-    console.error("Erro no formulário:", errors);
-  };
-
-  // A MÁGICA ESTÁ AQUI: Esta função impede o navegador de dar reload à página!
-  const onSafeSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); 
-    e.stopPropagation();
-    form.handleSubmit(handleSubmit, handleError)(e);
+    console.error("ERRO DE VALIDAÇÃO (O Formulário barrou o envio):", errors);
   };
 
   return (
     <Form {...form}>
-      {/* Usamos o onSafeSubmit em vez do padrão do form */}
-      <form className="space-y-6">
+      {/* O onSubmit bloqueia o comportamento nativo (reload) do navegador */}
+      <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
         <FormField
           control={form.control}
           name="name"
@@ -124,7 +123,6 @@ export function RecurringAccountForm({
               <FormLabel>Nome da Conta *</FormLabel>
               <FormControl>
                 <Input
-                  id="account-name"
                   placeholder="Ex: Conta de Energia, Internet, Aluguel"
                   {...field}
                   className="h-11"
@@ -144,7 +142,7 @@ export function RecurringAccountForm({
                 <FormLabel>Categoria *</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger id="account-category" className="h-11">
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                   </FormControl>
@@ -169,7 +167,7 @@ export function RecurringAccountForm({
                 <FormLabel>Recorrência *</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger id="account-recurrence" className="h-11">
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                   </FormControl>
@@ -196,7 +194,7 @@ export function RecurringAccountForm({
                 <FormLabel>Empresa/Pessoa (opcional)</FormLabel>
                 <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'}>
                   <FormControl>
-                    <SelectTrigger id="account-entity" className="h-11">
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Todas as entidades" />
                     </SelectTrigger>
                   </FormControl>
@@ -236,7 +234,6 @@ export function RecurringAccountForm({
                   <FormLabel>Dia de Vencimento</FormLabel>
                   <FormControl>
                     <Input
-                      id="account-day"
                       type="text"
                       placeholder="Ex: 10"
                       {...field}
@@ -259,7 +256,6 @@ export function RecurringAccountForm({
                 <FormLabel>Valor Médio (R$)</FormLabel>
                 <FormControl>
                   <Input
-                    id="account-amount"
                     type="text"
                     placeholder="0,00"
                     {...field}
@@ -282,7 +278,6 @@ export function RecurringAccountForm({
               <FormLabel>Observações</FormLabel>
               <FormControl>
                 <Textarea
-                  id="account-notes"
                   placeholder="Informações adicionais..."
                   className="resize-none"
                   {...field}
@@ -307,7 +302,6 @@ export function RecurringAccountForm({
               </div>
               <FormControl>
                 <Switch
-                  id="account-active"
                   checked={field.value}
                   onCheckedChange={field.onChange}
                 />
@@ -316,6 +310,7 @@ export function RecurringAccountForm({
           )}
         />
 
+        {/* O BOTÃO MAGICO: O type="button" garante que a página NÃO dá reload, e o onClick dispara o envio manual. */}
         <Button 
           type="button" 
           onClick={form.handleSubmit(handleSubmit, handleError)}
