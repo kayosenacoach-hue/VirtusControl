@@ -26,19 +26,30 @@ import { ExpenseCategory, CATEGORY_LABELS } from '@/types/expense';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { Building2, User } from 'lucide-react';
 
-// CORREÇÃO: Usando preprocess para evitar que campos vazios virem '0'
+// Esquema Zod "Blindado" contra vírgulas e vazios
 const accountFormSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
   entityId: z.string().optional(),
   recurrence: z.enum(['pontual', 'mensal', 'semanal', 'quinzenal', 'anual'] as const),
   expectedDay: z.preprocess(
-    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
-    z.number().min(1, 'Mínimo 1').max(31, 'Máximo 31').optional()
+    (val) => {
+      if (val === '' || val === undefined || val === null) return undefined;
+      const parsed = Number(val);
+      return isNaN(parsed) ? undefined : parsed;
+    },
+    z.number().min(1, 'Mínimo dia 1').max(31, 'Máximo dia 31').optional()
   ),
   averageAmount: z.preprocess(
-    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
-    z.number().min(0, 'O valor não pode ser negativo').optional()
+    (val) => {
+      if (val === '' || val === undefined || val === null) return undefined;
+      if (typeof val === 'string') {
+        const parsed = parseFloat(val.replace(',', '.'));
+        return isNaN(parsed) ? undefined : parsed;
+      }
+      return Number(val);
+    },
+    z.number().min(0, 'Não pode ser negativo').optional()
   ),
   notes: z.string().max(500, 'Máximo 500 caracteres').optional(),
   isActive: z.boolean(),
@@ -91,9 +102,14 @@ export function RecurringAccountForm({
     form.reset();
   };
 
+  // Se o formulário falhar, ele vai avisar exatamente qual foi o campo aqui no Console (F12)
+  const handleError = (errors: any) => {
+    console.error("ERRO DE VALIDAÇÃO DO FORMULÁRIO (Frontend):", errors);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleError)} className="space-y-6">
         <FormField
           control={form.control}
           name="name"
@@ -213,9 +229,7 @@ export function RecurringAccountForm({
                   <FormLabel>Dia de Vencimento</FormLabel>
                   <FormControl>
                     <Input
-                      type="number"
-                      min="1"
-                      max="31"
+                      type="text"
                       placeholder="Ex: 10"
                       {...field}
                       value={field.value ?? ''}
@@ -237,9 +251,7 @@ export function RecurringAccountForm({
                 <FormLabel>Valor Médio (R$)</FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     placeholder="0,00"
                     {...field}
                     value={field.value ?? ''}
