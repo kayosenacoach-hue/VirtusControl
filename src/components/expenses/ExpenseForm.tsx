@@ -41,9 +41,19 @@ import {
 import { useEntityContext } from '@/contexts/EntityContext';
 import { formatDocument } from '@/types/entity';
 
+// CORREÇÃO: Usando preprocess para lidar com vírgulas e strings vazias no valor
 const expenseFormSchema = z.object({
   description: z.string().min(1, 'Descrição é obrigatória').max(200, 'Máximo 200 caracteres'),
-  amount: z.coerce.number().positive('Valor deve ser positivo'),
+  amount: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        const parsed = parseFloat(val.replace(',', '.'));
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return Number(val) || 0;
+    },
+    z.number().min(0.01, 'Valor deve ser maior que zero')
+  ),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
   date: z.date(),
   paymentMethod: z.enum(['dinheiro', 'cartao_credito', 'cartao_debito', 'pix', 'boleto', 'transferencia'] as const),
@@ -132,11 +142,11 @@ export function ExpenseForm({
                 <FormLabel>Valor (R$) *</FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     placeholder="0,00"
                     {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value)}
                     className="h-11"
                   />
                 </FormControl>
@@ -269,13 +279,14 @@ export function ExpenseForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa/Pessoa</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                  <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'}>
                     <FormControl>
                       <SelectTrigger className="h-11">
                         <SelectValue placeholder="Selecione (opcional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="all">Nenhuma/Todas</SelectItem>
                       {entities.map((entity) => (
                         <SelectItem key={entity.id} value={entity.id}>
                           <div className="flex items-center gap-2">
