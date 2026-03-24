@@ -98,7 +98,12 @@ export function ExpenseForm({
   });
 
   const handleError = (errors: any) => {
-    console.error("Erro no formulário:", errors);
+    const camposComErro = Object.keys(errors)
+      .map(key => `- ${key}: ${errors[key]?.message || 'Inválido'}`)
+      .join('\n');
+      
+    alert(`🔴 O FORMULÁRIO DE DESPESAS BLOQUEOU O CLIQUE!\n\nEle encontrou erros nestes campos:\n${camposComErro}`);
+    console.error("ERROS DE VALIDAÇÃO:", errors);
   };
 
   const handleSubmit = async (values: ExpenseFormValues) => {
