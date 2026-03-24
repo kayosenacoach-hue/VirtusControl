@@ -10,11 +10,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, User, ShieldCheck, Settings, CreditCard, UserCircle } from 'lucide-react';
+import { LogOut, User, ShieldCheck, Settings, CreditCard, UserCircle, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function UserMenu() {
-  const { profile, isAdmin, signOut } = useAuthContext();
+  const { profile, signOut } = useAuthContext();
   const navigate = useNavigate();
 
   if (!profile) return null;
@@ -30,6 +30,10 @@ export function UserMenu() {
     await signOut();
     navigate('/auth', { replace: true });
   };
+
+  // VERIFICAÇÃO RÍGIDA: Separando o Admin Real do Titular (Owner) da conta
+  const isRealAdmin = profile.role === 'admin';
+  const isOwner = profile.role === 'owner';
 
   return (
     <DropdownMenu>
@@ -52,11 +56,13 @@ export function UserMenu() {
             <p className="text-sm font-medium">{profile.full_name}</p>
             <p className="text-xs text-muted-foreground">{profile.email}</p>
             <Badge 
-              variant={isAdmin ? 'default' : 'secondary'} 
+              variant={isRealAdmin ? 'default' : (isOwner ? 'outline' : 'secondary')} 
               className="w-fit mt-1"
             >
-              {isAdmin ? (
+              {isRealAdmin ? (
                 <><ShieldCheck className="h-3 w-3 mr-1" /> Administrador</>
+              ) : isOwner ? (
+                <><Crown className="h-3 w-3 mr-1 text-yellow-500" /> Titular</>
               ) : (
                 <><User className="h-3 w-3 mr-1" /> Funcionário</>
               )}

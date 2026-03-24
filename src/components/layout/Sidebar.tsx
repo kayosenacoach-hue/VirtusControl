@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -18,6 +17,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { Button } from '@/components/ui/button';
+import { useAuthContext } from '@/contexts/AuthContext'; // ADICIONADO AQUI
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', tourId: 'sidebar-dashboard' },
@@ -33,12 +33,14 @@ const navItems = [
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const location = useLocation();
-  const { isAdmin } = useAuthContext();
+  const { profile } = useAuthContext(); // VAMOS BUSCAR O PERFIL REAL
 
+  // VERIFICAÇÃO RÍGIDA: Só é admin se a palavra na base de dados for exata
+  const isRealAdmin = profile?.role === 'admin';
+
+  // FILTRO: Remove a aba de Usuários se não for o Admin Real
   const visibleItems = navItems.filter(item => {
-    if (item.to === '/usuarios' && !isAdmin) return false;
-    // Se quiser esconder as configurações para não-admins, descomente a linha abaixo:
-    if (item.to === '/configuracoes' && !isAdmin) return false;
+    if (item.to === '/usuarios' && !isRealAdmin) return false;
     return true;
   });
 
@@ -81,15 +83,10 @@ export function Sidebar() {
       )}
     >
       <div className="flex h-full flex-col">
-        {/* Logo */}
         <div className="flex h-16 items-center border-b border-sidebar-border px-4">
           <Logo collapsed={collapsed} />
         </div>
-
-        {/* Navigation */}
         <SidebarContent collapsed={collapsed} />
-
-        {/* Collapse button */}
         <div className="border-t border-sidebar-border p-3">
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -116,16 +113,12 @@ export function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <>
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 z-50 bg-black/50 md:hidden"
         onClick={() => onOpenChange(false)}
       />
-      
-      {/* Sidebar Panel */}
       <aside className="fixed left-0 top-0 z-50 h-full w-[280px] max-w-[80vw] bg-sidebar border-r border-sidebar-border md:hidden animate-slide-in-left">
         <div className="flex h-full flex-col">
-          {/* Header */}
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
             <Logo collapsed={false} />
             <Button
@@ -137,8 +130,6 @@ export function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenCha
               <X className="h-5 w-5" />
             </Button>
           </div>
-
-          {/* Navigation */}
           <SidebarContent collapsed={false} onNavigate={() => onOpenChange(false)} />
         </div>
       </aside>
