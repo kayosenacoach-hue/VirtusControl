@@ -37,8 +37,11 @@ export default function Auth() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error("Preencha email e senha.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await signIn(email, password);
@@ -47,8 +50,11 @@ export default function Auth() {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignup = async () => {
+    if (!signupName || !signupEmail || !signupPassword || !companyName || !whatsappNumber) {
+      toast.error("Por favor, preencha todos os campos.");
+      return;
+    }
 
     if (!isPasswordStrong(signupPassword)) {
       toast.error('A senha não atende aos requisitos mínimos de segurança.');
@@ -57,7 +63,7 @@ export default function Auth() {
 
     setIsSubmitting(true);
     try {
-      // 1. Create auth user
+      // 1. Cria o utilizador
       const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
@@ -72,37 +78,31 @@ export default function Auth() {
 
       if (error) throw error;
 
-      if (data.session) {
-        // User is auto-confirmed, run onboarding immediately
-        const { error: onboardError } = await supabase.rpc('onboard_new_user', {
-          _company_name: companyName,
-          _whatsapp_number: whatsappNumber,
-        });
+      // 2. FORÇA O ONBOARDING IMEDIATAMENTE (mesmo se o email não estiver confirmado)
+      const { error: onboardError } = await supabase.rpc('onboard_new_user', {
+        _company_name: companyName,
+        _whatsapp_number: whatsappNumber,
+      });
 
-        if (onboardError) {
-          console.error('Onboarding error:', onboardError);
-          toast.error('Conta criada, mas houve um erro no onboarding. Contate o suporte.');
-        } else {
-          toast.success('Conta criada com sucesso! Bem-vindo ao VirtusControl.');
-        }
+      if (onboardError) console.error('Onboarding error:', onboardError);
 
-        // Send WhatsApp notifications (fire and forget)
-        supabase.functions.invoke('notify-new-signup', {
-          body: {
-            userName: signupName,
-            userPhone: whatsappNumber,
-            companyName: companyName,
-          },
-        }).catch((err) => console.error('Notification error:', err));
-      } else {
-        // Email confirmation required - store onboarding data in localStorage for after confirmation
-        localStorage.setItem('pendingOnboarding', JSON.stringify({
-          companyName,
-          whatsappNumber,
+      // 3. DISPARA O WHATSAPP IMEDIATAMENTE!
+      supabase.functions.invoke('notify-new-signup', {
+        body: {
           userName: signupName,
-        }));
-        toast.success('Conta criada! Verifique seu email para confirmar o cadastro.');
+          userPhone: whatsappNumber,
+          companyName: companyName,
+        },
+      }).then(() => console.log("WhatsApp enviado!"))
+        .catch((err) => console.error('Notification error:', err));
+
+      // 4. Mensagem para o ecrã
+      if (data.session) {
+        toast.success('Conta criada com sucesso! Bem-vindo ao VirtusControl.');
+      } else {
+        toast.success('Conta criada! Verifique seu email para confirmar o cadastro. A mensagem de boas vindas chegará no seu WhatsApp.');
       }
+      
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar conta');
     } finally {
@@ -132,32 +132,34 @@ export default function Auth() {
             </TabsList>
 
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="login-email">Email</Label>
                   <Input
-                    id="email"
+                    id="login-email"
+                    name="email"
+                    autoComplete="email"
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="login-password">Senha</Label>
                   <Input
-                    id="password"
+                    id="login-password"
+                    name="password"
+                    autoComplete="current-password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+                <Button type="button" onClick={handleLogin} className="w-full h-11" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Entrar
                 </Button>
@@ -166,20 +168,21 @@ export default function Auth() {
                     Esqueceu a senha?
                   </Link>
                 </div>
-              </form>
+              </div>
             </TabsContent>
 
             <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
+              <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Nome completo</Label>
                   <Input
                     id="signup-name"
+                    name="name"
+                    autoComplete="name"
                     type="text"
                     placeholder="Seu nome"
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
@@ -187,11 +190,12 @@ export default function Auth() {
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
                     id="signup-email"
+                    name="email"
+                    autoComplete="email"
                     type="email"
                     placeholder="seu@email.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
@@ -199,12 +203,12 @@ export default function Auth() {
                   <Label htmlFor="signup-password">Senha</Label>
                   <Input
                     id="signup-password"
+                    name="new-password"
+                    autoComplete="new-password"
                     type="password"
                     placeholder="Mínimo 8 caracteres"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                    minLength={8}
                     className="h-11"
                   />
                   <PasswordStrengthIndicator password={signupPassword} />
@@ -213,11 +217,11 @@ export default function Auth() {
                   <Label htmlFor="company-name">Nome da empresa</Label>
                   <Input
                     id="company-name"
+                    name="organization"
                     type="text"
                     placeholder="Minha Empresa LTDA"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
@@ -225,19 +229,20 @@ export default function Auth() {
                   <Label htmlFor="whatsapp">WhatsApp</Label>
                   <Input
                     id="whatsapp"
+                    name="tel"
+                    autoComplete="tel"
                     type="tel"
                     placeholder="5511999999999"
                     value={whatsappNumber}
                     onChange={(e) => setWhatsappNumber(e.target.value)}
-                    required
                     className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+                <Button type="button" onClick={handleSignup} className="w-full h-11" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Criar Conta
                 </Button>
-              </form>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

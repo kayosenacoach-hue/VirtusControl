@@ -14,8 +14,13 @@ export default function ForgotPassword() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email) {
+      toast.error('Por favor, digite seu email.');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -25,7 +30,6 @@ export default function ForgotPassword() {
       setSent(true);
       toast.success('Email de recuperação enviado!');
     } catch (error: any) {
-      // Don't reveal if email exists or not
       toast.success('Se o email existir, você receberá um link de recuperação.');
       setSent(true);
     } finally {
@@ -62,11 +66,13 @@ export default function ForgotPassword() {
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="reset-email">Email</Label>
                 <Input
-                  id="email"
+                  id="reset-email"
+                  name="email"
+                  autoComplete="email"
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
@@ -75,7 +81,12 @@ export default function ForgotPassword() {
                   className="h-11"
                 />
               </div>
-              <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+              <Button 
+                type="button" 
+                onClick={() => handleSubmit()} 
+                className="w-full h-11" 
+                disabled={isSubmitting}
+              >
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Enviar link de recuperação
               </Button>
@@ -85,7 +96,7 @@ export default function ForgotPassword() {
                   Voltar ao login
                 </Button>
               </Link>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>
