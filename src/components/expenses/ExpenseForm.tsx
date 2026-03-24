@@ -171,7 +171,7 @@ export function ExpenseForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Categoria *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione a categoria" />
@@ -238,7 +238,7 @@ export function ExpenseForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Forma de Pagamento *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione a forma" />
@@ -263,7 +263,7 @@ export function ExpenseForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de Pessoa *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="PJ ou PF" />
@@ -289,7 +289,7 @@ export function ExpenseForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa/Pessoa</FormLabel>
-                  <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                     <FormControl>
                       <SelectTrigger className="h-11">
                         <SelectValue placeholder="Selecione (opcional)" />

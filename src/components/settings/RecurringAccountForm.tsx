@@ -140,7 +140,7 @@ export function RecurringAccountForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Categoria *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione" />
@@ -165,7 +165,7 @@ export function RecurringAccountForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Recorrência *</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione" />
@@ -192,7 +192,7 @@ export function RecurringAccountForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Empresa/Pessoa (opcional)</FormLabel>
-                <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Todas as entidades" />
