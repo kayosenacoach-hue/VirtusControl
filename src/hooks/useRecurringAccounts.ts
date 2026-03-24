@@ -9,7 +9,6 @@ export function useRecurringAccounts() {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuthContext();
 
-  // Load accounts from database
   const loadAccounts = useCallback(async () => {
     if (!user) {
       setAccounts([]);
@@ -27,13 +26,12 @@ export function useRecurringAccounts() {
 
       if (error) throw error;
 
-      // Transform database format to app format
       const transformed: RecurringAccount[] = (data || []).map(row => ({
         id: row.id,
         name: row.name,
         category: row.category as RecurringAccount['category'],
         entityId: row.entity_id || undefined,
-        recurrence: 'mensal', // Default to monthly since DB doesn't have this column
+        recurrence: 'mensal',
         expectedDay: row.expected_day || undefined,
         averageAmount: row.expected_amount ? Number(row.expected_amount) : undefined,
         notes: row.notes || undefined,
@@ -43,8 +41,7 @@ export function useRecurringAccounts() {
 
       setAccounts(transformed);
     } catch (error) {
-      console.error('Erro ao carregar contas recorrentes:', error);
-      toast.error('Erro ao carregar contas recorrentes');
+      console.error('Erro ao carregar:', error);
     } finally {
       setIsLoading(false);
     }
@@ -55,26 +52,34 @@ export function useRecurringAccounts() {
   }, [loadAccounts]);
 
   const addAccount = useCallback(async (account: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
+    console.log(">>> 1. Botão clicado e dados chegaram ao Hook:", account);
+    
     if (!user) {
-      toast.error('Você precisa estar logado para adicionar contas');
+      alert('ALARME: O sistema acha que você não está logado!');
       return null;
     }
 
     try {
+      const payload = {
+        user_id: user.id,
+        name: account.name,
+        category: account.category,
+        entity_id: account.entityId || null,
+        expected_day: account.expectedDay || null,
+        expected_amount: account.averageAmount || null,
+        is_active: account.isActive,
+        notes: account.notes || null,
+      };
+      
+      console.log(">>> 2. Enviando para o Supabase o pacote:", payload);
+
       const { data, error } = await supabase
         .from('recurring_accounts')
-        .insert({
-          user_id: user.id,
-          name: account.name,
-          category: account.category,
-          entity_id: account.entityId || null,
-          expected_day: account.expectedDay || null,
-          expected_amount: account.averageAmount || null,
-          is_active: account.isActive,
-          notes: account.notes || null,
-        })
+        .insert(payload)
         .select()
         .single();
+
+      console.log(">>> 3. Resposta do Supabase:", { data, error });
 
       if (error) throw error;
 
@@ -92,21 +97,22 @@ export function useRecurringAccounts() {
       };
 
       setAccounts(prev => [...prev, newAccount]);
+      
+      // ALERTA DE SUCESSO EXTREMO
+      alert('🟢 SUCESSO ABSOLUTO! A conta foi gravada no Supabase!');
       toast.success('Conta fixa cadastrada com sucesso!');
+      
       return newAccount;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao adicionar conta:', error);
-      toast.error('Erro ao adicionar conta');
+      // ALERTA DE ERRO EXTREMO COM O MOTIVO EXATO
+      alert('🔴 O SUPABASE REJEITOU A GRAVAÇÃO!\nMotivo: ' + (error.message || JSON.stringify(error)));
       return null;
     }
   }, [user]);
 
   const updateAccount = useCallback(async (id: string, updates: Partial<Omit<RecurringAccount, 'id' | 'createdAt'>>) => {
-    if (!user) {
-      toast.error('Você precisa estar logado');
-      return;
-    }
-
+    if (!user) return;
     try {
       const updateData: Record<string, any> = {};
       if (updates.name !== undefined) updateData.name = updates.name;
@@ -117,54 +123,27 @@ export function useRecurringAccounts() {
       if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
       if (updates.notes !== undefined) updateData.notes = updates.notes || null;
 
-      const { error } = await supabase
-        .from('recurring_accounts')
-        .update(updateData)
-        .eq('id', id)
-        .eq('user_id', user.id);
-
+      const { error } = await supabase.from('recurring_accounts').update(updateData).eq('id', id).eq('user_id', user.id);
       if (error) throw error;
 
-      setAccounts(prev => prev.map(account =>
-        account.id === id ? { ...account, ...updates } : account
-      ));
-
-      toast.success('Conta atualizada com sucesso!');
+      setAccounts(prev => prev.map(account => account.id === id ? { ...account, ...updates } : account));
+      toast.success('Atualizada com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar conta:', error);
-      toast.error('Erro ao atualizar conta');
+      console.error('Erro ao atualizar:', error);
     }
   }, [user]);
 
   const deleteAccount = useCallback(async (id: string) => {
-    if (!user) {
-      toast.error('Você precisa estar logado');
-      return;
-    }
-
+    if (!user) return;
     try {
-      const { error } = await supabase
-        .from('recurring_accounts')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
+      const { error } = await supabase.from('recurring_accounts').delete().eq('id', id).eq('user_id', user.id);
       if (error) throw error;
-
       setAccounts(prev => prev.filter(account => account.id !== id));
-      toast.success('Conta removida com sucesso!');
+      toast.success('Removida com sucesso!');
     } catch (error) {
-      console.error('Erro ao excluir conta:', error);
-      toast.error('Erro ao excluir conta');
+      console.error('Erro ao excluir:', error);
     }
   }, [user]);
 
-  return {
-    accounts,
-    isLoading,
-    addAccount,
-    updateAccount,
-    deleteAccount,
-    refetch: loadAccounts,
-  };
+  return { accounts, isLoading, addAccount, updateAccount, deleteAccount, refetch: loadAccounts };
 }
