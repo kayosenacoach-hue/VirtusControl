@@ -88,32 +88,34 @@ export function RecurringAccountForm({
   const selectedRecurrence = form.watch('recurrence');
 
   const handleSubmit = async (values: AccountFormValues) => {
-    try {
-      console.log("Tentando enviar dados para o Supabase (SEM FORM):", values);
-      await onSubmit({
-        name: values.name,
-        category: values.category,
-        entityId: values.entityId || undefined,
-        recurrence: values.recurrence,
-        expectedDay: values.expectedDay || undefined,
-        averageAmount: values.averageAmount || undefined,
-        notes: values.notes || undefined,
-        isActive: values.isActive,
-      });
-      form.reset();
-      console.log("Sucesso ao enviar!");
-    } catch (error) {
-      console.error("ERRO AO ENVIAR PARA O SUPABASE:", error);
-    }
+    alert("🟢 O Formulário autorizou o envio! Passando os dados para o Supabase...");
+    await onSubmit({
+      name: values.name,
+      category: values.category,
+      entityId: values.entityId || undefined,
+      recurrence: values.recurrence,
+      expectedDay: values.expectedDay || undefined,
+      averageAmount: values.averageAmount || undefined,
+      notes: values.notes || undefined,
+      isActive: values.isActive,
+    });
+    form.reset();
   };
 
+  // O NOVO ALARME DE VALIDAÇÃO
   const handleError = (errors: any) => {
-    console.error("ERRO DE VALIDAÇÃO (O Formulário barrou o envio):", errors);
+    const camposComErro = Object.keys(errors).map(key => `- ${key}: ${errors[key]?.message}`).join('\n');
+    alert(`🔴 O FORMULÁRIO BLOQUEOU O CLIQUE!\n\nEle encontrou erros nestes campos:\n${camposComErro}`);
+    console.error("ERROS:", errors);
+  };
+
+  const onSafeSubmit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    form.handleSubmit(handleSubmit, handleError)(e);
   };
 
   return (
     <Form {...form}>
-      {/* SUBSTITUÍMOS O <form> POR UMA <div> PARA MATAR O RELOAD NATIVO */}
       <div className="space-y-6">
         <FormField
           control={form.control}
@@ -192,7 +194,7 @@ export function RecurringAccountForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Empresa/Pessoa (opcional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
+                <Select onValueChange={(v) => field.onChange(v === "all" ? undefined : v)} value={field.value || 'all'} name={field.name}>
                   <FormControl>
                     <SelectTrigger className="h-11">
                       <SelectValue placeholder="Todas as entidades" />
@@ -310,10 +312,9 @@ export function RecurringAccountForm({
           )}
         />
 
-        {/* O BOTÃO AGORA DISPARA A FUNÇÃO DO REACT DIRETAMENTE PELO ONCLICK */}
         <Button 
           type="button" 
-          onClick={form.handleSubmit(handleSubmit, handleError)}
+          onClick={onSafeSubmit}
           className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90 transition-opacity"
           disabled={isLoading}
         >
