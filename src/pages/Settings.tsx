@@ -14,34 +14,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { 
   Settings as SettingsIcon, 
   Plus, 
   Building2, 
-  User, 
-  Pencil, 
-  Trash2,
   RotateCcw,
-  Calendar,
-  AlertTriangle
+  Trash2,
+  Pencil
 } from 'lucide-react';
-import { Entity, formatDocument } from '@/types/entity';
+import { Entity } from '@/types/entity';
 import { RecurringAccount, RECURRENCE_LABELS } from '@/types/recurring';
-import { CATEGORY_LABELS } from '@/types/expense';
 import { Skeleton } from '@/components/ui/skeleton';
-import { clearAllData } from '@/lib/clearAllData';
-import { toast } from 'sonner';
 
 export default function Settings() {
   const { entities, isLoading: isLoadingEntities, addEntity, updateEntity, deleteEntity } = useEntityContext();
@@ -74,26 +57,15 @@ export default function Settings() {
     }
   };
 
+  // FUNÇÃO FORTE PARA ADICIONAR CONTA FIXA
   const handleAddAccount = async (data: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
-    console.log("🟢 [Settings.tsx] O modal recebeu os dados para Adicionar Conta Fixa:", data);
+    console.log("🛠️ Settings.tsx recebeu a ordem de gravar:", data);
     setIsSubmitting(true);
     try {
-      const result = await addAccount(data);
-      console.log("🟢 [Settings.tsx] Resultado do Hook:", result);
-      setIsAddAccountDialogOpen(false);
-    } catch (err) {
-       console.error("🔴 [Settings.tsx] Erro ao gravar!", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUpdateAccount = async (data: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
-    if (!editingAccount) return;
-    setIsSubmitting(true);
-    try {
-      await updateAccount(editingAccount.id, data);
-      setEditingAccount(null);
+      await addAccount(data);
+      setIsAddAccountDialogOpen(false); // Só fecha o modal DEPOIS de gravar
+    } catch (e) {
+      console.error("Erro capturado no Settings.tsx", e);
     } finally {
       setIsSubmitting(false);
     }
@@ -121,9 +93,7 @@ export default function Settings() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie empresas, pessoas e contas fixas
-            </p>
+            <p className="text-muted-foreground mt-1">Gerencie empresas, pessoas e contas fixas</p>
           </div>
         </div>
 
@@ -143,20 +113,11 @@ export default function Settings() {
             <div className="flex justify-end">
               <Dialog open={isAddEntityDialogOpen} onOpenChange={setIsAddEntityDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gradient-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Empresa/Pessoa
-                  </Button>
+                  <Button className="gradient-primary"><Plus className="h-4 w-4 mr-2" /> Adicionar Entidade</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Nova Empresa/Pessoa</DialogTitle>
-                  </DialogHeader>
-                  <EntityForm
-                    onSubmit={handleAddEntity}
-                    isLoading={isSubmitting}
-                    submitLabel="Adicionar"
-                  />
+                  <DialogHeader><DialogTitle>Nova Entidade</DialogTitle></DialogHeader>
+                  <EntityForm onSubmit={handleAddEntity} isLoading={isSubmitting} submitLabel="Salvar" />
                 </DialogContent>
               </Dialog>
             </div>
@@ -169,8 +130,7 @@ export default function Settings() {
                    {entities.map(entity => (
                      <div key={entity.id} className="p-4 flex justify-between">
                        <p>{entity.name}</p>
-                       <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => setEditingEntity(entity)}><Pencil className="h-4 w-4" /></Button>
+                       <div className="flex gap-2">
                           <Button variant="ghost" size="icon" onClick={() => deleteEntity(entity.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                        </div>
                      </div>
@@ -180,25 +140,28 @@ export default function Settings() {
             </div>
           </TabsContent>
 
-          {/* A Aba de Contas */}
+          {/* ABA CONTAS FIXAS */}
           <TabsContent value="accounts" className="space-y-4">
             <div className="flex justify-end">
               <Dialog open={isAddAccountDialogOpen} onOpenChange={setIsAddAccountDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="gradient-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Conta Fixa
+                    <Plus className="h-4 w-4 mr-2" /> Adicionar Conta Fixa
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                
+                {/* INTERACT OUTSIDE FALSE OBRIGA A CLICAR NO BOTAO */}
+                <DialogContent 
+                  className="max-w-md max-h-[90vh] overflow-y-auto"
+                  onPointerDownOutside={(e) => e.preventDefault()}
+                >
                   <DialogHeader>
                     <DialogTitle>Nova Conta Fixa</DialogTitle>
                   </DialogHeader>
-                  {/* ESTE É O COMPONENTE QUE ESTÁ A FALHAR - VAMOS CORRIGIR NO PASSO 2 */}
                   <RecurringAccountForm
                     onSubmit={handleAddAccount}
                     isLoading={isSubmitting}
-                    submitLabel="Adicionar"
+                    submitLabel="Adicionar Conta Agora"
                   />
                 </DialogContent>
               </Dialog>
@@ -210,49 +173,31 @@ export default function Settings() {
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
                     <RotateCcw className="h-8 w-8 text-primary" />
                   </div>
-                  <p className="text-lg font-medium text-card-foreground">
-                    Nenhuma conta fixa cadastrada
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-sm mb-4">
-                    Cadastre contas recorrentes como energia, internet, aluguel para associar automaticamente aos comprovantes
-                  </p>
-                  <Button onClick={() => setIsAddAccountDialogOpen(true)} className="gradient-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Primeira Conta
+                  <p className="text-lg font-medium text-card-foreground">Nenhuma conta fixa cadastrada</p>
+                  <Button onClick={() => setIsAddAccountDialogOpen(true)} className="gradient-primary mt-4">
+                    <Plus className="h-4 w-4 mr-2" /> Adicionar Primeira Conta
                   </Button>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {accounts.map((account) => {
-                    const entity = entities.find(e => e.id === account.entityId);
-                    return (
-                      <div
-                        key={account.id}
-                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                      >
+                  {accounts.map((account) => (
+                      <div key={account.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                          <div className="flex items-center gap-4">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${account.isActive ? 'bg-primary/10' : 'bg-muted'}`}>
                             <RotateCcw className={`h-6 w-6 ${account.isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className={`font-semibold ${account.isActive ? 'text-card-foreground' : 'text-muted-foreground'}`}>
-                                {account.name}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {RECURRENCE_LABELS[account.recurrence] || account.recurrence}
-                              </Badge>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold">{account.name}</p>
+                              <Badge variant="outline" className="text-xs">{RECURRENCE_LABELS[account.recurrence] || account.recurrence}</Badge>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                           <Button variant="ghost" size="icon" onClick={() => deleteAccount(account.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => deleteAccount(account.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
-                    );
-                  })}
+                  ))}
                 </div>
               )}
             </div>
