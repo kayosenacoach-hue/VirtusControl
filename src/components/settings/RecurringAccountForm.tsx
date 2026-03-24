@@ -89,7 +89,7 @@ export function RecurringAccountForm({
 
   const handleSubmit = async (values: AccountFormValues) => {
     try {
-      console.log("Tentando enviar dados para o Supabase:", values);
+      console.log("Tentando enviar dados para o Supabase (SEM FORM):", values);
       await onSubmit({
         name: values.name,
         category: values.category,
@@ -111,15 +111,10 @@ export function RecurringAccountForm({
     console.error("ERRO DE VALIDAÇÃO (O Formulário barrou o envio):", errors);
   };
 
-  // Esta é a função nuclear que intercepta o submit do formulário nativo e força o React Hook Form a agir
-  const onSafeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    form.handleSubmit(handleSubmit, handleError)(e);
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={onSafeSubmit} className="space-y-6">
+      {/* SUBSTITUÍMOS O <form> POR UMA <div> PARA MATAR O RELOAD NATIVO */}
+      <div className="space-y-6">
         <FormField
           control={form.control}
           name="name"
@@ -315,15 +310,16 @@ export function RecurringAccountForm({
           )}
         />
 
-        {/* O botão volta a ser do tipo submit, mas o React agora segura a onda no <form onSubmit> */}
+        {/* O BOTÃO AGORA DISPARA A FUNÇÃO DO REACT DIRETAMENTE PELO ONCLICK */}
         <Button 
-          type="submit" 
+          type="button" 
+          onClick={form.handleSubmit(handleSubmit, handleError)}
           className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90 transition-opacity"
           disabled={isLoading}
         >
           {isLoading ? 'Salvando...' : submitLabel}
         </Button>
-      </form>
+      </div>
     </Form>
   );
 }
