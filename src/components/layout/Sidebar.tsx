@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -32,10 +33,18 @@ const navItems = [
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const location = useLocation();
+  const { isAdmin } = useAuthContext();
+
+  const visibleItems = navItems.filter(item => {
+    if (item.to === '/usuarios' && !isAdmin) return false;
+    // Se quiser esconder as configurações para não-admins, descomente a linha abaixo:
+    if (item.to === '/configuracoes' && !isAdmin) return false;
+    return true;
+  });
 
   return (
     <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-      {navItems.map((item) => {
+      {visibleItems.map((item) => {
         const isActive = location.pathname === item.to;
         return (
           <NavLink
