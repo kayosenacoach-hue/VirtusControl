@@ -75,10 +75,14 @@ export default function Settings() {
   };
 
   const handleAddAccount = async (data: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
+    console.log("🟢 [Settings.tsx] O modal recebeu os dados para Adicionar Conta Fixa:", data);
     setIsSubmitting(true);
     try {
-      await addAccount(data);
+      const result = await addAccount(data);
+      console.log("🟢 [Settings.tsx] Resultado do Hook:", result);
       setIsAddAccountDialogOpen(false);
+    } catch (err) {
+       console.error("🔴 [Settings.tsx] Erro ao gravar!", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +115,6 @@ export default function Settings() {
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
             <SettingsIcon className="h-6 w-6 text-primary-foreground" />
@@ -124,7 +127,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="entities" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="entities" className="gap-2">
@@ -137,7 +139,6 @@ export default function Settings() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Entities Tab */}
           <TabsContent value="entities" className="space-y-4">
             <div className="flex justify-end">
               <Dialog open={isAddEntityDialogOpen} onOpenChange={setIsAddEntityDialogOpen}>
@@ -159,92 +160,27 @@ export default function Settings() {
                 </DialogContent>
               </Dialog>
             </div>
-
+            
             <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
-              {entities.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-                    <Building2 className="h-8 w-8 text-primary" />
-                  </div>
-                  <p className="text-lg font-medium text-card-foreground">
-                    Nenhuma empresa ou pessoa cadastrada
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">
-                    Adicione sua primeira entidade para começar
-                  </p>
-                  <Button onClick={() => setIsAddEntityDialogOpen(true)} className="gradient-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Primeira Entidade
-                  </Button>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {entities.map((entity) => (
-                    <div
-                      key={entity.id}
-                      className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="h-12 w-12 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: `hsl(${entity.color})` }}
-                        >
-                          {entity.type === 'pj' ? (
-                            <Building2 className="h-6 w-6 text-white" />
-                          ) : (
-                            <User className="h-6 w-6 text-white" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-card-foreground">{entity.name}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {entity.type.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDocument(entity.document, entity.type)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingEntity(entity)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir {entity.type === 'pj' ? 'empresa' : 'pessoa'}?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação não pode ser desfeita. "{entity.name}" será permanentemente removida.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteEntity(entity.id)}>
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+               {entities.length === 0 ? (
+                 <div className="p-8 text-center text-muted-foreground">Sem entidades.</div>
+               ) : (
+                 <div className="divide-y divide-border">
+                   {entities.map(entity => (
+                     <div key={entity.id} className="p-4 flex justify-between">
+                       <p>{entity.name}</p>
+                       <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => setEditingEntity(entity)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteEntity(entity.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               )}
             </div>
           </TabsContent>
 
-          {/* Recurring Accounts Tab */}
+          {/* A Aba de Contas */}
           <TabsContent value="accounts" className="space-y-4">
             <div className="flex justify-end">
               <Dialog open={isAddAccountDialogOpen} onOpenChange={setIsAddAccountDialogOpen}>
@@ -258,6 +194,7 @@ export default function Settings() {
                   <DialogHeader>
                     <DialogTitle>Nova Conta Fixa</DialogTitle>
                   </DialogHeader>
+                  {/* ESTE É O COMPONENTE QUE ESTÁ A FALHAR - VAMOS CORRIGIR NO PASSO 2 */}
                   <RecurringAccountForm
                     onSubmit={handleAddAccount}
                     isLoading={isSubmitting}
@@ -293,7 +230,7 @@ export default function Settings() {
                         key={account.id}
                         className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex items-center gap-4">
+                         <div className="flex items-center gap-4">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${account.isActive ? 'bg-primary/10' : 'bg-muted'}`}>
                             <RotateCcw className={`h-6 w-6 ${account.isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                           </div>
@@ -303,65 +240,15 @@ export default function Settings() {
                                 {account.name}
                               </p>
                               <Badge variant="outline" className="text-xs">
-                                {RECURRENCE_LABELS[account.recurrence]}
+                                {RECURRENCE_LABELS[account.recurrence] || account.recurrence}
                               </Badge>
-                              <Badge variant="secondary" className="text-xs">
-                                {CATEGORY_LABELS[account.category]}
-                              </Badge>
-                              {!account.isActive && (
-                                <Badge variant="outline" className="text-xs text-muted-foreground">
-                                  Inativa
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {account.expectedDay && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  Dia {account.expectedDay}
-                                </span>
-                              )}
-                              {entity && (
-                                <span className="flex items-center gap-1">
-                                  <div 
-                                    className="h-2 w-2 rounded-full"
-                                    style={{ backgroundColor: `hsl(${entity.color})` }}
-                                  />
-                                  {entity.name}
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingAccount(account)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir conta fixa?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. "{account.name}" será permanentemente removida.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteAccount(account.id)}>
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                           <Button variant="ghost" size="icon" onClick={() => deleteAccount(account.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                         </div>
                       </div>
                     );
@@ -371,98 +258,6 @@ export default function Settings() {
             </div>
           </TabsContent>
         </Tabs>
-
-        {/* Clear All Data Section */}
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 mt-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground">Zona de Perigo</h3>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Limpar todos os dados do sistema. Esta ação não pode ser desfeita.
-              </p>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Limpar Todos os Dados
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Limpar todos os dados?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação irá remover permanentemente todas as despesas, entidades, contas fixas e histórico de pagamentos. Esta ação não pode ser desfeita.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={async () => {
-                        await clearAllData();
-                        toast.success('Todos os dados foram removidos!');
-                        window.location.reload();
-                      }}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Sim, limpar tudo
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        </div>
-
-        {/* Edit Entity Dialog */}
-        <Dialog open={!!editingEntity} onOpenChange={(open) => !open && setEditingEntity(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Editar {editingEntity?.type === 'pj' ? 'Empresa' : 'Pessoa'}</DialogTitle>
-            </DialogHeader>
-            {editingEntity && (
-              <EntityForm
-                onSubmit={handleUpdateEntity}
-                isLoading={isSubmitting}
-                submitLabel="Salvar Alterações"
-                initialData={{
-                  name: editingEntity.name,
-                  document: editingEntity.document,
-                  type: editingEntity.type,
-                  color: editingEntity.color,
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Account Dialog */}
-        <Dialog open={!!editingAccount} onOpenChange={(open) => !open && setEditingAccount(null)}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Editar Conta Fixa</DialogTitle>
-            </DialogHeader>
-            {editingAccount && (
-              <RecurringAccountForm
-                onSubmit={handleUpdateAccount}
-                isLoading={isSubmitting}
-                submitLabel="Salvar Alterações"
-                initialData={{
-                  name: editingAccount.name,
-                  category: editingAccount.category,
-                  entityId: editingAccount.entityId,
-                  recurrence: editingAccount.recurrence,
-                  expectedDay: editingAccount.expectedDay,
-                  averageAmount: editingAccount.averageAmount,
-                  notes: editingAccount.notes,
-                  isActive: editingAccount.isActive,
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </MainLayout>
   );
