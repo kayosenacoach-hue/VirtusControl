@@ -67,6 +67,13 @@ export function useRecurringAccounts() {
         throw error;
       }
 
+      if (!data) {
+        alert("🔴 O Supabase não deu erro, mas também NÃO GRAVOU os dados!");
+        throw new Error("Falha silenciosa do Supabase: Sem retorno.");
+      }
+
+      alert("🟢 SUCESSO ABSOLUTO! A conta foi gravada no Supabase!");
+
       toast.success('Conta Fixa criada com sucesso!');
       loadAccounts(); // Recarrega a lista
       return data;
