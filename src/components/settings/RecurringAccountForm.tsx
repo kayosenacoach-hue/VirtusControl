@@ -26,7 +26,6 @@ import { ExpenseCategory, CATEGORY_LABELS } from '@/types/expense';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { Building2, User } from 'lucide-react';
 
-// Esquema Zod "Blindado" contra vírgulas e campos em branco
 const accountFormSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   category: z.enum(['operacional', 'pessoal', 'marketing', 'fornecedores', 'impostos', 'equipamentos', 'outros'] as const),
@@ -90,6 +89,7 @@ export function RecurringAccountForm({
 
   const handleSubmit = async (values: AccountFormValues) => {
     try {
+      console.log("Tentando enviar dados para o Supabase:", values);
       await onSubmit({
         name: values.name,
         category: values.category,
@@ -101,20 +101,25 @@ export function RecurringAccountForm({
         isActive: values.isActive,
       });
       form.reset();
+      console.log("Sucesso ao enviar!");
     } catch (error) {
       console.error("ERRO AO ENVIAR PARA O SUPABASE:", error);
     }
   };
 
-  // Se faltar algum campo, o erro vai aparecer no seu F12 Console
   const handleError = (errors: any) => {
     console.error("ERRO DE VALIDAÇÃO (O Formulário barrou o envio):", errors);
   };
 
+  // Esta é a função nuclear que intercepta o submit do formulário nativo e força o React Hook Form a agir
+  const onSafeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    form.handleSubmit(handleSubmit, handleError)(e);
+  };
+
   return (
     <Form {...form}>
-      {/* O onSubmit bloqueia o comportamento nativo (reload) do navegador */}
-      <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+      <form onSubmit={onSafeSubmit} className="space-y-6">
         <FormField
           control={form.control}
           name="name"
@@ -310,10 +315,9 @@ export function RecurringAccountForm({
           )}
         />
 
-        {/* O BOTÃO MAGICO: O type="button" garante que a página NÃO dá reload, e o onClick dispara o envio manual. */}
+        {/* O botão volta a ser do tipo submit, mas o React agora segura a onda no <form onSubmit> */}
         <Button 
-          type="button" 
-          onClick={form.handleSubmit(handleSubmit, handleError)}
+          type="submit" 
           className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90 transition-opacity"
           disabled={isLoading}
         >
