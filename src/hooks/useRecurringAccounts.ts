@@ -26,7 +26,7 @@ export function useRecurringAccounts() {
 
       if (error) throw error;
 
-      const transformed: RecurringAccount[] = (data || []).map(row => ({
+      const transformed: RecurringAccount[] = (data || []).map((row: any) => ({
         id: row.id,
         name: row.name,
         category: row.category as RecurringAccount['category'],
@@ -41,7 +41,7 @@ export function useRecurringAccounts() {
 
       setAccounts(transformed);
     } catch (error) {
-      console.error('Erro ao carregar contas recorrentes:', error);
+      console.error('Erro ao carregar contas fixas:', error);
     } finally {
       setIsLoading(false);
     }
@@ -52,18 +52,14 @@ export function useRecurringAccounts() {
   }, [loadAccounts]);
 
   const addAccount = useCallback(async (account: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
-    if (!user) {
-      toast.error('Sessão expirada. Faça login novamente.');
-      return null;
-    }
+    if (!user) return null;
 
     try {
-      // PACOTE BLINDADO: Agora tem a recurrence e formatações exatas para a Base de Dados
       const payload = {
         user_id: user.id,
         name: account.name,
         category: account.category,
-        recurrence: account.recurrence || 'mensal', // AQUI ESTAVA O ERRO INVISÍVEL!
+        recurrence: account.recurrence || 'mensal',
         entity_id: account.entityId || null,
         expected_day: account.expectedDay || null,
         expected_amount: account.averageAmount || null,
@@ -73,20 +69,19 @@ export function useRecurringAccounts() {
 
       const { data, error } = await supabase
         .from('recurring_accounts')
-        .insert(payload)
+        .insert(payload as any)
         .select()
         .single();
 
       if (error) throw error;
-      if (!data) throw new Error("Supabase não devolveu os dados gravados.");
 
-      toast.success('Conta fixa cadastrada com sucesso!');
-      await loadAccounts(); // Força a recarregar diretamente da base de dados
+      toast.success('Conta fixa cadastrada!');
+      await loadAccounts(); 
       
       return data;
     } catch (error: any) {
-      console.error('Erro detalhado ao gravar no Supabase:', error);
-      alert('🔴 ERRO DO SUPABASE:\n' + (error.message || JSON.stringify(error)));
+      console.error('Erro ao gravar conta:', error);
+      toast.error('Não foi possível gravar a conta fixa.');
       return null;
     }
   }, [user, loadAccounts]);
@@ -94,7 +89,7 @@ export function useRecurringAccounts() {
   const updateAccount = useCallback(async (id: string, updates: Partial<Omit<RecurringAccount, 'id' | 'createdAt'>>) => {
     if (!user) return;
     try {
-      const updateData: Record<string, any> = {};
+      const updateData: any = {};
       if (updates.name !== undefined) updateData.name = updates.name;
       if (updates.category !== undefined) updateData.category = updates.category;
       if (updates.recurrence !== undefined) updateData.recurrence = updates.recurrence;
@@ -108,9 +103,10 @@ export function useRecurringAccounts() {
       if (error) throw error;
 
       await loadAccounts();
-      toast.success('Atualizada com sucesso!');
+      toast.success('Conta atualizada!');
     } catch (error) {
       console.error('Erro ao atualizar:', error);
+      toast.error('Erro ao atualizar a conta.');
     }
   }, [user, loadAccounts]);
 
@@ -121,9 +117,10 @@ export function useRecurringAccounts() {
       if (error) throw error;
       
       await loadAccounts();
-      toast.success('Removida com sucesso!');
+      toast.success('Conta removida!');
     } catch (error) {
       console.error('Erro ao excluir:', error);
+      toast.error('Não foi possível remover a conta.');
     }
   }, [user, loadAccounts]);
 

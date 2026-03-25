@@ -16,7 +16,6 @@ export function useExpenses() {
       const { data, error } = await supabase.from('expenses').select('*').eq('user_id', user.id).order('date', { ascending: false });
       if (error) throw error;
 
-      // CORREÇÃO: Adicionado (row: any) para o TypeScript aceitar a nova coluna is_recurring
       const transformed: Expense[] = (data || []).map((row: any) => ({
         id: row.id,
         description: row.description,
@@ -33,7 +32,7 @@ export function useExpenses() {
       
       setExpenses(transformed);
     } catch (error) {
-      console.error('Erro ao carregar:', error);
+      console.error('Erro ao carregar despesas:', error);
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +41,10 @@ export function useExpenses() {
   useEffect(() => { loadExpenses(); }, [loadExpenses]);
 
   const addExpense = useCallback(async (expense: any) => {
-    if (!user) { alert('Usuário não autenticado!'); return null; }
+    if (!user) {
+      toast.error('Sessão expirada. Faça login novamente.');
+      return null;
+    }
 
     try {
       const payload = {
@@ -57,25 +59,74 @@ export function useExpenses() {
         notes: expense.notes || null,
       };
 
-      const { data, error } = await supabase.from('expenses').insert(payload).select().single();
+      const { data, error } = await supabase.from('expenses').insert(payload as any).select().single();
 
-      if (error) {
-        alert(`🔴 ERRO DO SUPABASE:\n${error.message}`);
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Despesa adicionada com sucesso!');
       loadExpenses();
       return data;
     } catch (error) {
-      toast.error('Erro ao adicionar despesa');
+      console.error('Erro no Supabase:', error);
+      toast.error('Não foi possível gravar a despesa. Tente novamente.');
       return null;
     }
   }, [user, loadExpenses]);
 
-  const updateExpense = useCallback(async (id: string, updates: any) => {}, [user]);
-  const deleteExpense = useCallback(async (id: string) => {}, [user]);
-  const clearAllExpenses = useCallback(async () => {}, [user]);
+  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
+    if (!user) return;
+    try {
+      const payload: any = {};
+      if (updates.description) payload.description = updates.description;
+      if (updates.amount) payload.amount = updates.amount;
+      if (updates.category) payload.category = updates.category;
+      if (updates.date) payload.date = updates.date;
+      if (updates.paymentMethod) payload.payment_method = updates.paymentMethod;
+      if (updates.entityId !== undefined) payload.entity_id = updates.entityId || null;
+      if (updates.isRecurring !== undefined) payload.is_recurring = updates.isRecurring;
+      if (updates.notes !== undefined) payload.notes = updates.notes || null;
+
+      const { error } = await supabase.from('expenses').update(payload).eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+      
+      toast.success('Despesa atualizada com sucesso!');
+      loadExpenses();
+    } catch (error: any) {
+      console.error('Erro ao atualizar:', error);
+      toast.error('Erro ao atualizar despesa.');
+    }
+  }, [user, loadExpenses]);
+
+  const deleteExpense = useCallback(async (id: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+      
+      toast.success('Despesa excluída!');
+      loadExpenses();
+    } catch (error: any) {
+      console.error('Erro ao excluir:', error);
+      toast.error('Erro ao excluir despesa.');
+    }
+  }, [user, loadExpenses]);
+
+  const clearAllExpenses = useCallback(async () => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.from('expenses').delete().eq('user_id', user.id);
+      if (error) throw error;
+      
+      toast.success('Todas as despesas foram apagadas.');
+      setExpenses([]);
+    } catch (error: any) {
+      console.error('Erro ao limpar despesas:', error);
+      toast.error('Não foi possível limpar as despesas.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   return { expenses, isLoading, addExpense, updateExpense, deleteExpense, clearAllExpenses, refetch: loadExpenses };
 }
