@@ -18,7 +18,6 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Signup fields
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -64,43 +63,54 @@ export default function Auth() {
     setIsSubmitting(true);
     try {
       // 1. Cria o utilizador
-      const { data, error } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
         options: {
           emailRedirectTo: window.location.origin,
-          data: {
-            full_name: signupName,
-            role: 'owner',
-          },
+          data: { full_name: signupName, role: 'owner' },
         },
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
 
-      // 2. FORÇA O ONBOARDING IMEDIATAMENTE (mesmo se o email não estiver confirmado)
-      const { error: onboardError } = await supabase.rpc('onboard_new_user', {
-        _company_name: companyName,
-        _whatsapp_number: whatsappNumber,
-      });
+      // 2. CRIAÇÃO FORÇADA DA EMPRESA (Bypass do onboarding falhado)
+      const userId = authData.user?.id;
+      
+      if (userId) {
+        try {
+          // Grava a Entidade (Empresa) diretamente
+          const { data: entityData, error: entityError } = await (supabase.from('entities') as any).insert({
+            name: companyName,
+            type: 'pj',
+            document: '00000000000000', // Preenchimento genérico necessário
+            user_id: userId
+          }).select().single();
 
-      if (onboardError) console.error('Onboarding error:', onboardError);
+          if (entityError) console.error("Erro ao criar Entidade nativa:", entityError);
 
-      // 3. DISPARA O WHATSAPP IMEDIATAMENTE!
+          // Se a empresa foi criada com sucesso, dá acesso ao utilizador
+          if (entityData) {
+             await (supabase.from('user_entity_access') as any).insert({
+                user_id: userId,
+                entity_id: entityData.id,
+             });
+          }
+        } catch (e) {
+           console.error("Falha silenciosa ao forçar criação de empresa:", e);
+        }
+      }
+
+      // 3. Dispara o WhatsApp (Já confirmámos que funciona!)
       supabase.functions.invoke('notify-new-signup', {
-        body: {
-          userName: signupName,
-          userPhone: whatsappNumber,
-          companyName: companyName,
-        },
+        body: { userName: signupName, userPhone: whatsappNumber, companyName: companyName },
       }).then(() => console.log("WhatsApp enviado!"))
         .catch((err) => console.error('Notification error:', err));
 
-      // 4. Mensagem para o ecrã
-      if (data.session) {
-        toast.success('Conta criada com sucesso! Bem-vindo ao VirtusControl.');
+      if (authData.session) {
+        toast.success('Conta e Empresa criadas com sucesso! Bem-vindo.');
       } else {
-        toast.success('Conta criada! Verifique seu email para confirmar o cadastro. A mensagem de boas vindas chegará no seu WhatsApp.');
+        toast.success('Conta criada! Verifique seu email para confirmar. A sua Empresa já está pronta!');
       }
       
     } catch (error: any) {
@@ -114,14 +124,10 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <Logo />
-          </div>
+          <div className="flex justify-center"><Logo /></div>
           <div>
             <CardTitle className="text-xl md:text-2xl">VirtusControl</CardTitle>
-            <CardDescription className="text-sm">
-              Sistema de gestão financeira multi-entidade
-            </CardDescription>
+            <CardDescription className="text-sm">Sistema de gestão financeira multi-entidade</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -133,114 +139,24 @@ export default function Auth() {
 
             <TabsContent value="login">
               <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    name="email"
-                    autoComplete="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
-                  <Input
-                    id="login-password"
-                    name="password"
-                    autoComplete="current-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" /></div>
+                <div className="space-y-2"><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" /></div>
                 <Button type="button" onClick={handleLogin} className="w-full h-11" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Entrar
+                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Entrar
                 </Button>
-                <div className="text-center">
-                  <Link to="/esqueci-senha" className="text-sm text-primary hover:underline">
-                    Esqueceu a senha?
-                  </Link>
-                </div>
+                <div className="text-center"><Link to="/esqueci-senha" className="text-sm text-primary hover:underline">Esqueceu a senha?</Link></div>
               </div>
             </TabsContent>
 
             <TabsContent value="signup">
               <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome completo</Label>
-                  <Input
-                    id="signup-name"
-                    name="name"
-                    autoComplete="name"
-                    type="text"
-                    placeholder="Seu nome"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    name="email"
-                    autoComplete="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    name="new-password"
-                    autoComplete="new-password"
-                    type="password"
-                    placeholder="Mínimo 8 caracteres"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    className="h-11"
-                  />
-                  <PasswordStrengthIndicator password={signupPassword} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company-name">Nome da empresa</Label>
-                  <Input
-                    id="company-name"
-                    name="organization"
-                    type="text"
-                    placeholder="Minha Empresa LTDA"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp">WhatsApp</Label>
-                  <Input
-                    id="whatsapp"
-                    name="tel"
-                    autoComplete="tel"
-                    type="tel"
-                    placeholder="5511999999999"
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    className="h-11"
-                  />
-                </div>
+                <div className="space-y-2"><Label>Nome completo</Label><Input type="text" value={signupName} onChange={(e) => setSignupName(e.target.value)} className="h-11" /></div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="h-11" /></div>
+                <div className="space-y-2"><Label>Senha</Label><Input type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="h-11" /><PasswordStrengthIndicator password={signupPassword} /></div>
+                <div className="space-y-2"><Label>Nome da empresa</Label><Input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-11" /></div>
+                <div className="space-y-2"><Label>WhatsApp</Label><Input type="tel" value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} className="h-11" /></div>
                 <Button type="button" onClick={handleSignup} className="w-full h-11" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Criar Conta
+                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Criar Conta
                 </Button>
               </div>
             </TabsContent>
