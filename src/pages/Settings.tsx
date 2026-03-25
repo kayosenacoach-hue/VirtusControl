@@ -1,79 +1,190 @@
 import { useState } from 'react';
+import { useEntityContext } from '@/contexts/EntityContext';
+import { useRecurringContext } from '@/contexts/RecurringContext';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { EntityForm } from '@/components/settings/EntityForm';
+import { RecurringAccountForm } from '@/components/settings/RecurringAccountForm';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { 
+  Settings as SettingsIcon, 
+  Plus, 
+  Building2, 
+  RotateCcw,
+  Trash2
+} from 'lucide-react';
+import { Entity } from '@/types/entity';
+import { RecurringAccount, RECURRENCE_LABELS } from '@/types/recurring';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// === PAINEL DE DIAGNÓSTICO (BYPASS TOTAL) ===
-function PainelDiagnostico() {
-  const { user } = useAuthContext();
-  const [log, setLog] = useState('Pronto para testar a ligação direta ao Supabase...\n');
+export default function Settings() {
+  const { entities, isLoading: isLoadingEntities, addEntity, deleteEntity } = useEntityContext();
+  const { accounts, isLoading: isLoadingAccounts, addAccount, deleteAccount } = useRecurringContext();
+  
+  const [isAddEntityDialogOpen, setIsAddEntityDialogOpen] = useState(false);
+  const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const rodarTeste = async () => {
-    setLog('A iniciar teste...\n');
-    if (!user) { 
-      setLog(p => p + 'ERRO: Sem utilizador logado no momento.\n'); 
-      return; 
-    }
-    
-    // Pacote forçado e perfeito
-    const payload = {
-      user_id: user.id,
-      name: 'CONTA TESTE DIAGNÓSTICO ' + new Date().getSeconds(),
-      category: 'operacional',
-      recurrence: 'mensal',
-      is_active: true
-    };
-
-    setLog(p => p + 'A gravar: ' + JSON.stringify(payload) + '\n');
-
+  const handleAddEntity = async (data: Omit<Entity, 'id' | 'createdAt'>) => {
+    setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('recurring_accounts')
-        .insert(payload)
-        .select();
-
-      if (error) {
-        setLog(p => p + '\n🔴 ERRO DO SUPABASE:\n' + JSON.stringify(error, null, 2) + '\n');
-      } else {
-        setLog(p => p + '\n🟢 GRAVOU COM SUCESSO! Dados que entraram na tabela:\n' + JSON.stringify(data, null, 2) + '\n');
-      }
-    } catch (e: any) {
-      setLog(p => p + '\n🔴 EXCEÇÃO CRÍTICA:\n' + e.message + '\n');
+      await addEntity(data);
+      setIsAddEntityDialogOpen(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="bg-black text-green-400 p-4 rounded-xl font-mono text-sm mb-8 whitespace-pre-wrap overflow-auto shadow-xl border border-green-900">
-      <h3 className="font-bold text-white mb-4 text-lg">Painel de Diagnóstico Direto</h3>
-      <p className="text-gray-400 mb-4">Este botão ignora todos os formulários e tenta injetar uma conta fixa diretamente na sua base de dados.</p>
-      <button onClick={rodarTeste} className="bg-green-600 hover:bg-green-500 text-black px-6 py-3 font-bold rounded-lg mb-4 transition-colors">
-        EXECUTAR INJEÇÃO DE DADOS
-      </button>
-      <div className="bg-gray-900 p-4 rounded border border-gray-800 min-h-[200px]">{log}</div>
-    </div>
-  );
-}
+  const handleAddAccount = async (data: Omit<RecurringAccount, 'id' | 'createdAt'>) => {
+    setIsSubmitting(true);
+    try {
+      await addAccount(data);
+      setIsAddAccountDialogOpen(false); // Fecha o modal após o sucesso comprovado
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-// === PÁGINA DE CONFIGURAÇÕES ===
-export default function Settings() {
+  const isLoading = isLoadingEntities || isLoadingAccounts;
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-[400px] w-full rounded-xl" />
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
             <SettingsIcon className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
-            <p className="text-muted-foreground mt-1">Modo de Diagnóstico Ativado</p>
+            <p className="text-muted-foreground mt-1">Gerencie empresas, pessoas e contas fixas</p>
           </div>
         </div>
 
-        {/* INJETAMOS O PAINEL AQUI */}
-        <PainelDiagnostico />
+        <Tabs defaultValue="entities" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="entities" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Empresas/Pessoas
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Contas Fixas
+            </TabsTrigger>
+          </TabsList>
 
+          <TabsContent value="entities" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={isAddEntityDialogOpen} onOpenChange={setIsAddEntityDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gradient-primary"><Plus className="h-4 w-4 mr-2" /> Adicionar Entidade</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader><DialogTitle>Nova Entidade</DialogTitle></DialogHeader>
+                  <EntityForm onSubmit={handleAddEntity} isLoading={isSubmitting} submitLabel="Salvar" />
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
+               {entities.length === 0 ? (
+                 <div className="p-8 text-center text-muted-foreground">Sem entidades cadastradas.</div>
+               ) : (
+                 <div className="divide-y divide-border">
+                   {entities.map(entity => (
+                     <div key={entity.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                       <p className="font-medium">{entity.name}</p>
+                       <Button variant="ghost" size="icon" onClick={() => deleteEntity(entity.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                       </Button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </div>
+          </TabsContent>
+
+          {/* ABA CONTAS FIXAS */}
+          <TabsContent value="accounts" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={isAddAccountDialogOpen} onOpenChange={setIsAddAccountDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gradient-primary">
+                    <Plus className="h-4 w-4 mr-2" /> Adicionar Conta Fixa
+                  </Button>
+                </DialogTrigger>
+                <DialogContent 
+                  className="max-w-md max-h-[90vh] overflow-y-auto"
+                  onPointerDownOutside={(e) => e.preventDefault()}
+                >
+                  <DialogHeader>
+                    <DialogTitle>Nova Conta Fixa</DialogTitle>
+                  </DialogHeader>
+                  <RecurringAccountForm
+                    onSubmit={handleAddAccount}
+                    isLoading={isSubmitting}
+                    submitLabel="Adicionar Conta Agora"
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
+              {accounts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
+                    <RotateCcw className="h-8 w-8 text-primary" />
+                  </div>
+                  <p className="text-lg font-medium text-card-foreground">Nenhuma conta fixa cadastrada</p>
+                  <Button onClick={() => setIsAddAccountDialogOpen(true)} className="gradient-primary mt-4">
+                    <Plus className="h-4 w-4 mr-2" /> Adicionar Primeira Conta
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {accounts.map((account) => (
+                      <div key={account.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                         <div className="flex items-center gap-4">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${account.isActive ? 'bg-primary/10' : 'bg-muted'}`}>
+                            <RotateCcw className={`h-6 w-6 ${account.isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold">{account.name}</p>
+                              <Badge variant="outline" className="text-xs">{RECURRENCE_LABELS[account.recurrence] || account.recurrence}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => deleteAccount(account.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );

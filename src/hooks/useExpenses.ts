@@ -16,19 +16,21 @@ export function useExpenses() {
       const { data, error } = await supabase.from('expenses').select('*').eq('user_id', user.id).order('date', { ascending: false });
       if (error) throw error;
 
-      const transformed: Expense[] = (data || []).map(row => ({
+      // CORREÇÃO: Adicionado (row: any) para o TypeScript aceitar a nova coluna is_recurring
+      const transformed: Expense[] = (data || []).map((row: any) => ({
         id: row.id,
         description: row.description,
         amount: Number(row.amount),
-        category: row.category as any,
+        category: row.category,
         date: row.date,
-        paymentMethod: (row.payment_method || 'pix') as any,
+        paymentMethod: row.payment_method || 'pix',
         personType: row.entity_id ? 'pj' : 'pf',
         entityId: row.entity_id || undefined,
-        isRecurring: false,
+        isRecurring: row.is_recurring || false, 
         notes: row.notes || undefined,
         createdAt: row.created_at,
       }));
+      
       setExpenses(transformed);
     } catch (error) {
       console.error('Erro ao carregar:', error);
@@ -51,20 +53,17 @@ export function useExpenses() {
         date: expense.date,
         payment_method: expense.paymentMethod,
         entity_id: expense.entityId || null,
+        is_recurring: expense.isRecurring,
         notes: expense.notes || null,
       };
-
-      console.log("🚀 Payload disparado para o Supabase:", payload);
 
       const { data, error } = await supabase.from('expenses').insert(payload).select().single();
 
       if (error) {
-        console.error("🔴 Supabase rejeitou:", error);
         alert(`🔴 ERRO DO SUPABASE:\n${error.message}`);
         throw error;
       }
 
-      alert("🟢 SUCESSO ABSOLUTO! Despesa gravada na base de dados!");
       toast.success('Despesa adicionada com sucesso!');
       loadExpenses();
       return data;
