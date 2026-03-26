@@ -1,27 +1,28 @@
-import React, { createContext, useContext, ReactNode } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { Profile, AppRole } from '@/types/user';
+import { Profile, Subscription } from '@/types/user';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AuthContextType {
   user: User | null;
-  profile: Profile | null;
   session: Session | null;
+  profile: Profile | null;
+  subscription: Subscription | null;
+  isAuthenticated: boolean; // <-- RESTAURADO
   isLoading: boolean;
-  isAdmin: boolean;
-  isAuthenticated: boolean;
-  signUp: (email: string, password: string, fullName: string, role?: AppRole) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
+  isSubscriptionLoading: boolean;
+  subscriptionError: Error | null;
+  signIn: (e: string, p: string) => Promise<void>;
+  signUp: (e: string, p: string, n: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Omit<Profile, 'id' | 'email' | 'created_at'>>) => Promise<void>;
-  refetchProfile: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-
+  
   return (
     <AuthContext.Provider value={auth}>
       {children}
@@ -29,10 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuthContext() {
+export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuthContext must be used within an AuthProvider');
   }
   return context;
-}
+};

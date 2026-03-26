@@ -1,84 +1,13 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-interface SubscriptionGuardProps {
-  children: ReactNode;
-}
+export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
+  const { user, profile, subscription, isLoading, isSubscriptionLoading, subscriptionError } = useAuthContext();
+  const location = useLocation();
 
-export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
-  const { user, isAuthenticated, isAdmin } = useAuthContext();
-  const [status, setStatus] = useState<'loading' | 'active' | 'trial' | 'inactive' | 'blocked'>('loading');
-
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-
-    // Admins bypass subscription check
-    if (isAdmin) {
-      setStatus('active');
-      return;
-    }
-
-    const checkSubscription = async () => {
-      // Get user's entity
-      const { data: access } = await supabase
-        .from('user_entity_access')
-        .select('entity_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (!access) {
-        setStatus('inactive');
-        return;
-      }
-
-      // Check if entity is blocked
-      const { data: entity } = await supabase
-        .from('entities')
-        .select('status')
-        .eq('id', access.entity_id)
-        .maybeSingle();
-
-      if (entity && (entity as any).status === 'blocked') {
-        setStatus('blocked');
-        return;
-      }
-
-      // Check subscription
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('status, trial_end')
-        .eq('entity_id', access.entity_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!sub) {
-        setStatus('inactive');
-        return;
-      }
-
-      if (sub.status === 'active' || sub.status === 'authorized') {
-        setStatus('active');
-        return;
-      }
-
-      // Check if still in trial
-      if (sub.trial_end && new Date(sub.trial_end) > new Date()) {
-        setStatus('trial');
-        return;
-      }
-
-      setStatus('inactive');
-    };
-
-    checkSubscription();
-  }, [isAuthenticated, user, isAdmin]);
-
-  if (status === 'loading') {
+  if (isLoading || isSubscriptionLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -86,21 +15,34 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
-  if (status === 'blocked') {
+  if (!user) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  const isChoosePlanRoute = location.pathname === '/choose-plan';
+  if (isChoosePlanRoute) {
+    return <>{children}</>;
+  }
+
+  if (subscriptionError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-4">
-        <div className="text-center space-y-4 max-w-md">
-          <h1 className="text-2xl font-bold text-destructive">Acesso Bloqueado</h1>
-          <p className="text-muted-foreground">
-            Sua empresa foi bloqueada pelo administrador. Entre em contato com o suporte para mais informações.
-          </p>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-background flex-col gap-4 p-4 text-center">
+        <AlertCircle className="h-10 w-10 text-destructive" />
+        <h2 className="text-xl font-bold">Erro de Conexão</h2>
+        <p className="text-muted-foreground font-medium">Não conseguimos verificar a sua assinatura no momento.</p>
+        <Button onClick={() => window.location.reload()} variant="outline">Tentar Novamente</Button>
       </div>
     );
   }
 
-  if (status === 'inactive') {
-    return <Navigate to="/plano" replace />;
+  // ACEITA QUALQUER STATUS VÁLIDO (Ativo, Pendente, Período de Teste)
+  const validStatuses = ['active', 'trialing', 'pending'];
+  const hasActiveSubscription = subscription && validStatuses.includes(subscription.status);
+  
+  const isOwner = profile?.role === 'owner' || !profile;
+
+  if (isOwner && !hasActiveSubscription) {
+    return <Navigate to="/choose-plan" replace />;
   }
 
   return <>{children}</>;
