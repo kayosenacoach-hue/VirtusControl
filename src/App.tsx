@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ExpenseProvider } from "@/contexts/ExpenseContext";
 import { EntityProvider } from "@/contexts/EntityContext";
 import { RecurringProvider } from "@/contexts/RecurringContext";
@@ -46,8 +46,8 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes  
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       retry: 1,
     },
@@ -80,14 +80,13 @@ const App = () => (
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/esqueci-senha" element={<ForgotPassword />} />
                       <Route path="/reset-password" element={<ResetPassword />} />
-                      <Route
-                        path="/plano"
-                        element={
-                          <ProtectedRoute>
-                            <ChoosePlan />
-                          </ProtectedRoute>
-                        }
-                      />
+                      
+                      {/* Rota principal do Plano */}
+                      <Route path="/plano" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
+                      
+                      {/* TÚNEL DE SALVAMENTO: Captura rotas antigas e envia para /plano */}
+                      <Route path="/choose-plan" element={<Navigate to="/plano" replace />} />
+                      
                       {/* Admin routes */}
                       <Route path="/admin/login" element={<AdminLogin />} />
                       <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
@@ -98,122 +97,18 @@ const App = () => (
                       <Route path="/admin/logs" element={<AdminGuard><AdminLogs /></AdminGuard>} />
                       <Route path="/admin/configuracoes" element={<AdminGuard><AdminSettings /></AdminGuard>} />
                       {/* Client routes */}
-                      <Route
-                        path="/dashboard"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <Dashboard />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/contas"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <Bills />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/lancar"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <LaunchExpense />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/upload"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <AIUpload />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/whatsapp"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <WhatsAppPending />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/whatsapp/config"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <WhatsAppSettings />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/settings/whatsapp"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <WhatsAppNumberSettings />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/despesas"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <ExpenseList />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/usuarios"
-                        element={
-                          <ProtectedRoute requireAdmin>
-                            <SubscriptionGuard>
-                              <Users />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/configuracoes"
-                        element={
-                          <ProtectedRoute>
-                            <SubscriptionGuard>
-                              <Settings />
-                            </SubscriptionGuard>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/conta"
-                        element={
-                          <ProtectedRoute>
-                            <AccountSettings />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/assinatura"
-                        element={
-                          <ProtectedRoute>
-                            <Billing />
-                          </ProtectedRoute>
-                        }
-                      />
+                      <Route path="/dashboard" element={<ProtectedRoute><SubscriptionGuard><Dashboard /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/contas" element={<ProtectedRoute><SubscriptionGuard><Bills /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/lancar" element={<ProtectedRoute><SubscriptionGuard><LaunchExpense /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/upload" element={<ProtectedRoute><SubscriptionGuard><AIUpload /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/whatsapp" element={<ProtectedRoute><SubscriptionGuard><WhatsAppPending /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/whatsapp/config" element={<ProtectedRoute><SubscriptionGuard><WhatsAppSettings /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/settings/whatsapp" element={<ProtectedRoute><SubscriptionGuard><WhatsAppNumberSettings /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/despesas" element={<ProtectedRoute><SubscriptionGuard><ExpenseList /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/usuarios" element={<ProtectedRoute requireAdmin><SubscriptionGuard><Users /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/configuracoes" element={<ProtectedRoute><SubscriptionGuard><Settings /></SubscriptionGuard></ProtectedRoute>} />
+                      <Route path="/conta" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
+                      <Route path="/assinatura" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>

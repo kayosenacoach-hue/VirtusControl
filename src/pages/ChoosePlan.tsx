@@ -12,7 +12,6 @@ import { loadMercadoPago } from '@mercadopago/sdk-js';
 const MP_PUBLIC_KEY = 'APP_USR-d68c854c-2b9f-497e-bbd9-e2df17f12bb7';
 
 export default function ChoosePlan() {
-  // EXTRAIMOS O refreshUser DO CONTEXTO
   const { user, isAuthenticated, isLoading: authLoading, refreshUser } = useAuthContext();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,7 +52,6 @@ export default function ChoosePlan() {
           .maybeSingle();
 
         if (sub && ['active', 'pending', 'trialing'].includes(sub.status)) {
-          // A MÁGICA QUE QUEBRA O LOOP INFINITO: Força o contexto a recarregar a assinatura atualizada!
           await refreshUser(); 
           navigate('/dashboard', { replace: true });
         }
@@ -109,7 +107,7 @@ export default function ChoosePlan() {
 
   const handleCardSubmit = async (cardForm: any) => {
     const currentEntityId = entityIdRef.current || entityId;
-    if (!currentEntityId) { toast.error('Nenhuma empresa encontrada. Recarregue a página.'); return; }
+    if (!currentEntityId) { toast.error('Nenhuma empresa encontrada. Faça o cadastro primeiro.'); return; }
 
     setIsSubmitting(true);
     try {
@@ -128,7 +126,6 @@ export default function ChoosePlan() {
       const data = await response.json();
 
       if (data?.status === 'authorized' || data?.status === 'active' || data?.status === 'pending') {
-        // FORÇA O CONTEXTO A LER A ASSINATURA NOVA ANTES DE IR PARA O DASHBOARD
         await refreshUser();
         toast.success(data?.status === 'pending' ? 'Aguardando confirmação do pagamento.' : 'Assinatura criada com sucesso!');
         navigate('/dashboard', { replace: true });
@@ -152,11 +149,11 @@ export default function ChoosePlan() {
 
         <Card className="border-2 border-primary relative overflow-hidden">
           <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-lg">POPULAR</div>
-          <CardHeader className="text-center pb-2"><div className="flex justify-center mb-2"><Crown className="h-8 w-8 text-primary" /></div><CardTitle className="text-2xl">Plano Pro</CardTitle><CardDescription>Tudo que você precisa</CardDescription></CardHeader>
+          <CardHeader className="text-center pb-2"><div className="flex justify-center mb-2"><Crown className="h-8 w-8 text-primary" /></div><CardTitle className="text-2xl">Plano Pro</CardTitle><CardDescription>Tudo que você precisa para gerenciar suas finanças</CardDescription></CardHeader>
           <CardContent className="space-y-6">
-            <div className="text-center"><span className="text-4xl font-bold text-foreground">R$39</span><span className="text-muted-foreground">/mês</span><p className="text-sm text-primary font-medium mt-1">7 dias grátis</p></div>
+            <div className="text-center"><span className="text-4xl font-bold text-foreground">R$39</span><span className="text-muted-foreground">/mês</span><p className="text-sm text-primary font-medium mt-1">7 dias grátis para testar</p></div>
             <ul className="space-y-3">
-              {['Dashboard completo', 'Gestão PJ/PF', 'Registro via WhatsApp', 'Usuários ilimitados'].map((f) => <li key={f} className="flex items-center gap-2"><Check className="h-4 w-4 text-primary flex-shrink-0" /><span className="text-sm text-foreground">{f}</span></li>)}
+              {['Dashboard financeiro completo', 'Gestão multi-entidade (PJ/PF)', 'Registro de despesas via WhatsApp', 'Upload e análise de documentos por IA', 'Controle de contas a pagar', 'Relatórios e gráficos', 'Usuários ilimitados'].map((f) => <li key={f} className="flex items-center gap-2"><Check className="h-4 w-4 text-primary flex-shrink-0" /><span className="text-sm text-foreground">{f}</span></li>)}
             </ul>
 
             {!showCardForm ? (
@@ -171,17 +168,21 @@ export default function ChoosePlan() {
                 } else setShowCardForm(true);
               }} className="w-full h-12 text-base"><CreditCard className="h-4 w-4 mr-2" /> Assinar agora</Button>
             ) : (
-              <form id="form-checkout" className="space-y-3">
-                  <div id="form-checkout__cardNumber" className="h-11 rounded-md border bg-background px-1" />
-                  <div className="grid grid-cols-2 gap-3"><div id="form-checkout__expirationDate" className="h-11 rounded-md border bg-background px-1" /><div id="form-checkout__securityCode" className="h-11 rounded-md border bg-background px-1" /></div>
-                  <input type="text" id="form-checkout__cardholderName" className="flex h-11 w-full rounded-md border px-3 text-sm" placeholder="Nome no cartão" />
-                  <div className="grid grid-cols-2 gap-3"><select id="form-checkout__issuer" className="flex h-11 w-full rounded-md border px-3 text-sm" /><select id="form-checkout__installments" className="flex h-11 w-full rounded-md border px-3 text-sm" /></div>
-                  <div className="grid grid-cols-2 gap-3"><select id="form-checkout__identificationType" className="flex h-11 w-full rounded-md border px-3 text-sm" /><input type="text" id="form-checkout__identificationNumber" className="flex h-11 w-full rounded-md border px-3 text-sm" placeholder="CPF" /></div>
-                  <input type="email" id="form-checkout__cardholderEmail" className="flex h-11 w-full rounded-md border px-3 text-sm" placeholder="E-mail" defaultValue={user?.email || ''} />
-                  <Button type="submit" className="w-full h-12 text-base" disabled={isSubmitting || !mpReady}>{isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando...</> : !mpReady ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando...</> : 'Confirmar assinatura'}</Button>
-                  <Button type="button" variant="ghost" className="w-full" onClick={() => { setShowCardForm(false); setMpReady(false); if (cardFormRef.current) try { cardFormRef.current.unmount(); } catch (_) {} }}>Voltar</Button>
-              </form>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground"><CreditCard className="h-4 w-4 text-primary" /> Dados do cartão de crédito</div>
+                <form id="form-checkout" className="space-y-3">
+                    <div id="form-checkout__cardNumber" className="h-11 rounded-md border border-input bg-background px-1" />
+                    <div className="grid grid-cols-2 gap-3"><div id="form-checkout__expirationDate" className="h-11 rounded-md border border-input bg-background px-1" /><div id="form-checkout__securityCode" className="h-11 rounded-md border border-input bg-background px-1" /></div>
+                    <input type="text" id="form-checkout__cardholderName" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" placeholder="Nome como no cartão" />
+                    <div className="grid grid-cols-2 gap-3"><select id="form-checkout__issuer" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" /><select id="form-checkout__installments" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" /></div>
+                    <div className="grid grid-cols-2 gap-3"><select id="form-checkout__identificationType" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" /><input type="text" id="form-checkout__identificationNumber" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" placeholder="CPF" /></div>
+                    <input type="email" id="form-checkout__cardholderEmail" className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2" placeholder="E-mail" defaultValue={user?.email || ''} />
+                    <Button type="submit" className="w-full h-12 text-base" disabled={isSubmitting || !mpReady}>{isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando...</> : !mpReady ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando...</> : 'Confirmar assinatura'}</Button>
+                    <Button type="button" variant="ghost" className="w-full" onClick={() => { setShowCardForm(false); setMpReady(false); if (cardFormRef.current) try { cardFormRef.current.unmount(); } catch (_) {} }}>Voltar</Button>
+                </form>
+              </div>
             )}
+            <p className="text-xs text-muted-foreground text-center">Pagamento seguro via Mercado Pago. Cancele a qualquer momento.</p>
           </CardContent>
         </Card>
       </div>
