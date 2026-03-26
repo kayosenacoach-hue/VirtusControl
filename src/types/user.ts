@@ -10,6 +10,7 @@ export interface Profile {
   company_name?: string;
   createdAt?: string;
   updatedAt?: string;
+  menu_access?: string[]; // Adicionado para a gestão de acessos do Users.tsx
 }
 
 export interface Subscription {
@@ -22,3 +23,17 @@ export interface Subscription {
   cancelAtPeriodEnd: boolean;
   paymentMethod?: string;
 }
+
+// RESTAURADO: As listas de menus que a página Users.tsx precisa para funcionar
+export const MENU_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  lancamentos: 'Lançar Despesas',
+  despesas: 'Consultar Despesas',
+  contas: 'Contas Fixas',
+  empresas: 'Configurações',
+  usuarios: 'Gerenciar Usuários',
+  ia: 'Upload de Comprovantes (IA)',
+  relatorios: 'Relatórios'
+};
+
+export const ALL_MENUS = Object.keys(MENU_LABELS);
