@@ -62,44 +62,25 @@ export default function Auth() {
 
     setIsSubmitting(true);
     try {
-      // 1. Cria o utilizador
+      // A MÁGICA ACONTECE AQUI: Enviamos o nome da empresa e o whatsapp no pacote de "data".
+      // A Base de Dados vai intercetar isto e criar a empresa automaticamente!
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { full_name: signupName, role: 'owner' },
+          data: { 
+            full_name: signupName, 
+            role: 'owner',
+            company_name: companyName,
+            whatsapp_number: whatsappNumber
+          },
         },
       });
 
       if (authError) throw authError;
 
-      // 2. CRIAÇÃO FORÇADA DA EMPRESA
-      const userId = authData.user?.id;
-      
-      if (userId) {
-        try {
-          const { data: entityData, error: entityError } = await (supabase.from('entities') as any).insert({
-            name: companyName,
-            type: 'pj',
-            document: '00000000000000',
-            user_id: userId
-          }).select().single();
-
-          if (entityError) console.error("Erro ao criar Entidade nativa:", entityError);
-
-          if (entityData) {
-             await (supabase.from('user_entity_access') as any).insert({
-                user_id: userId,
-                entity_id: entityData.id,
-             });
-          }
-        } catch (e) {
-           console.error("Falha ao forçar criação de empresa, mas conta criada:", e);
-        }
-      }
-
-      // 3. Dispara o WhatsApp
+      // Dispara o WhatsApp (Esta parte continua a funcionar lindamente)
       supabase.functions.invoke('notify-new-signup', {
         body: { userName: signupName, userPhone: whatsappNumber, companyName: companyName },
       }).then(() => console.log("WhatsApp enviado!"))
