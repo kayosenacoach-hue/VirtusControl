@@ -108,12 +108,16 @@ export function useAuth() {
     try { const { error } = await supabase.auth.signOut(); if (error) throw error; toast.success('Logout realizado!'); } catch (error: any) { toast.error(error.message); }
   };
 
+  // Lógica para determinar se o usuário é admin
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'owner';
+
   return { 
     user, 
     session, 
     profile, 
     subscription, 
-    isAuthenticated: !!user, // <-- RESTAURADO AQUI
+    isAuthenticated: !!user,
+    isAdmin, // <-- ADICIONADO AQUI E CALCULADO AUTOMATICAMENTE
     isLoading, 
     isSubscriptionLoading, 
     subscriptionError, 

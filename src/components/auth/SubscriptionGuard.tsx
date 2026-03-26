@@ -1,48 +1,50 @@
+import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 
-export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, subscription, isLoading, isSubscriptionLoading, subscriptionError } = useAuthContext();
+interface SubscriptionGuardProps {
+  children: ReactNode;
+}
+
+export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
+  const { user, isAuthenticated, isAdmin } = useAuthContext();
+  const [status, setStatus] = useState<'loading' | 'active' | 'trial' | 'inactive' | 'blocked'>('loading');
   const location = useLocation();
 
-  if (isLoading || isSubscriptionLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
 
-  if (!user) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
-  }
+    if (isAdmin) {
+      setStatus('active');
+      return;
+    }
 
-  const isChoosePlanRoute = location.pathname === '/choose-plan';
-  if (isChoosePlanRoute) {
-    return <>{children}</>;
-  }
+    const checkSubscription = async () => {
+      const { data: access } = await supabase.from('user_entity_access').select('entity_id').eq('user_id', user.id).limit(1).maybeSingle();
+      if (!access) { setStatus('inactive'); return; }
 
-  if (subscriptionError) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background flex-col gap-4 p-4 text-center">
-        <AlertCircle className="h-10 w-10 text-destructive" />
-        <h2 className="text-xl font-bold">Erro de Conexão</h2>
-        <p className="text-muted-foreground font-medium">Não conseguimos verificar a sua assinatura no momento.</p>
-        <Button onClick={() => window.location.reload()} variant="outline">Tentar Novamente</Button>
-      </div>
-    );
-  }
+      const { data: entity } = await supabase.from('entities').select('status').eq('id', access.entity_id).maybeSingle();
+      if (entity && (entity as any).status === 'blocked') { setStatus('blocked'); return; }
 
-  // ACEITA QUALQUER STATUS VÁLIDO (Ativo, Pendente, Período de Teste)
-  const validStatuses = ['active', 'trialing', 'pending'];
-  const hasActiveSubscription = subscription && validStatuses.includes(subscription.status);
+      const { data: sub } = await supabase.from('subscriptions').select('status, trial_end').eq('entity_id', access.entity_id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!sub) { setStatus('inactive'); return; }
+      if (sub.status === 'active' || sub.status === 'authorized' || sub.status === 'pending') { setStatus('active'); return; }
+      if (sub.trial_end && new Date(sub.trial_end) > new Date()) { setStatus('trial'); return; }
+      
+      setStatus('inactive');
+    };
+
+    checkSubscription();
+  }, [isAuthenticated, user, isAdmin]);
+
+  if (status === 'loading') return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (status === 'blocked') return <div className="flex h-screen items-center justify-center bg-background p-4"><div className="text-center space-y-4 max-w-md"><h1 className="text-2xl font-bold text-destructive">Acesso Bloqueado</h1><p className="text-muted-foreground">Sua empresa foi bloqueada pelo administrador.</p></div></div>;
   
-  const isOwner = profile?.role === 'owner' || !profile;
-
-  if (isOwner && !hasActiveSubscription) {
-    return <Navigate to="/choose-plan" replace />;
+  // CORREÇÃO AQUI: De /choose-plan para /plano
+  if (status === 'inactive' && location.pathname !== '/plano') {
+    return <Navigate to="/plano" replace />;
   }
 
   return <>{children}</>;

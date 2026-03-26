@@ -8,7 +8,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   subscription: Subscription | null;
-  isAuthenticated: boolean; // <-- RESTAURADO
+  isAuthenticated: boolean;
+  isAdmin: boolean; // <-- ADICIONADO AQUI
   isLoading: boolean;
   isSubscriptionLoading: boolean;
   subscriptionError: Error | null;
