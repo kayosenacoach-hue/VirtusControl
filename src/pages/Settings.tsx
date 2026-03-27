@@ -99,7 +99,10 @@ export default function Settings() {
                 <DialogTrigger asChild>
                   <Button className="gradient-primary"><Plus className="h-4 w-4 mr-2" /> Adicionar Entidade</Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent 
+                  className="max-w-md max-h-[90vh] overflow-y-auto" 
+                  onPointerDownOutside={(e) => e.preventDefault()}
+                >
                   <DialogHeader><DialogTitle>Nova Entidade</DialogTitle></DialogHeader>
                   <EntityForm onSubmit={handleAddEntity} isLoading={isSubmitting} submitLabel="Salvar" />
                 </DialogContent>
