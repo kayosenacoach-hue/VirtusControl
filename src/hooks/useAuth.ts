@@ -22,11 +22,11 @@ export function useAuth() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
 
-      setSession(session);
-      setUser(session?.user ?? null);
+      // BLINDAGEM 1: Se o Token ou o ID do usuário forem os mesmos, mantém a memória intacta para não piscar a tela
+      setSession(prev => prev?.access_token === session?.access_token ? prev : session);
+      setUser(prev => (prev?.id === session?.user?.id) ? prev : (session?.user ?? null));
 
       if (session?.user) {
-        // 1. Busca o Perfil
         const { data: profileData } = await db.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
         if (profileData) {
           setProfile(profileData as Profile);
@@ -34,7 +34,6 @@ export function useAuth() {
           setProfile({ id: session.user.id, role: 'owner', full_name: session.user.user_metadata?.full_name || 'Usuário', createdAt: new Date().toISOString() } as unknown as Profile);
         }
 
-        // 2. Busca a Assinatura
         setIsSubscriptionLoading(true);
         let targetEntityId = null;
         
@@ -87,8 +86,11 @@ export function useAuth() {
     fetchUser();
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+        // BLINDAGEM 2: O evento que ocorre quando você volta a focar na aba do site!
+        // Agora, se o utilizador for o mesmo, o React ignora e a página fica 100% estática e fluida.
+        setSession(prev => prev?.access_token === session?.access_token ? prev : session);
+        setUser(prev => (prev?.id === session?.user?.id) ? prev : (session?.user ?? null));
+
         if (event === 'SIGNED_IN') fetchUser();
         else if (event === 'SIGNED_OUT') { setProfile(null); setSubscription(null); }
       }
@@ -108,7 +110,6 @@ export function useAuth() {
     try { const { error } = await supabase.auth.signOut(); if (error) throw error; toast.success('Logout realizado!'); } catch (error: any) { toast.error(error.message); }
   };
 
-  // Lógica para determinar se o usuário é admin
   const isAdmin = profile?.role === 'admin' || profile?.role === 'owner';
 
   return { 
@@ -117,7 +118,7 @@ export function useAuth() {
     profile, 
     subscription, 
     isAuthenticated: !!user,
-    isAdmin, // <-- ADICIONADO AQUI E CALCULADO AUTOMATICAMENTE
+    isAdmin,
     isLoading, 
     isSubscriptionLoading, 
     subscriptionError, 
