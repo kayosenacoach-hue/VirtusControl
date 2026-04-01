@@ -260,16 +260,15 @@ Deno.serve(async (req) => {
 _Acesse o sistema Vision Expenses para revisar e salvar esta despesa._`;
 
     await sendWhatsAppMessage(phone, responseMessage);
-
-    // Store in pending_expenses table with messageId to prevent duplicates
-    const { error: insertError } = await supabase
-      .from('pending_whatsapp_expenses')
-      .insert({
-        phone: phone,
-        extracted_data: { ...extractedData, messageId: message.messageId },
-        file_url: fileUrl,
-        processed_at: new Date().toISOString(),
-      });
+      const { error: insertError } = await supabase
+        .from('pending_whatsapp_expenses')
+        .insert({
+          phone: phone,
+          user_id: userProfile.id,
+          extracted_data: JSON.stringify(extractedData),
+          file_url: null,
+          processed_at: new Date().toISOString()
+        });
 
     if (insertError) {
       console.error('Error saving pending expense:', insertError);

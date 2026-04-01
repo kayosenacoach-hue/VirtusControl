@@ -130,15 +130,18 @@ export default function WhatsAppPending() {
   const fetchPendingExpenses = async () => {
     setLoading(true);
     try {
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (!currentUser) return;
+
       const { data, error } = await supabase
         .from('pending_whatsapp_expenses')
         .select('*')
         .is('claimed_by', null)
+        .eq('user_id', currentUser.id) // <-- ADICIONADO: Filtra apenas as despesas DESTE usuário
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      // Parse the data with proper typing
       const parsedData: PendingExpense[] = (data || []).map(item => ({
         ...item,
         extracted_data: parseExtractedData(item.extracted_data),
