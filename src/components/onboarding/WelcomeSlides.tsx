@@ -84,7 +84,7 @@ export function WelcomeSlides({ userName, onComplete }: WelcomeSlidesProps) {
 
   const goNext = () => {
     if (current === slides.length - 1) {
-      onComplete(false); // completed naturally → go to tour
+      onComplete(false); // completou os slides naturalmente → vai para o tour
       return;
     }
     setDirection(1);
@@ -198,7 +198,7 @@ export function WelcomeSlides({ userName, onComplete }: WelcomeSlidesProps) {
                   <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
                 </Button>
               ) : (
-                <Button variant="ghost" onClick={() => onComplete(false)} className="flex-1 text-muted-foreground">
+                <Button variant="ghost" onClick={() => onComplete(true)} className="flex-1 text-muted-foreground">
                   Pular tutorial
                 </Button>
               )}
