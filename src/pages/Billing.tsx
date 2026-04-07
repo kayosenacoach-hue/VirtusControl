@@ -1,77 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { CreditCard, Calendar, DollarSign, Loader2, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Loader2, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface SubscriptionInfo {
-  id: string;
-  plan_name: string;
-  price: number;
-  status: string;
-  trial_end: string | null;
-  next_billing_date: string | null;
-  mercado_pago_subscription_id: string | null;
-  created_at: string;
-}
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Billing() {
-  const { user } = useAuthContext();
+  const { user, subscription, isLoading: authLoading, refreshUser } = useAuthContext();
   const navigate = useNavigate();
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!authLoading && !user) {
+      navigate('/auth');
+    } else {
+      setPageLoading(false);
+    }
+  }, [user, authLoading, navigate]);
 
-    const fetchSubscription = async () => {
-      const { data: access } = await supabase
-        .from('user_entity_access')
-        .select('entity_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
+  const handleCancelSubscription = async () => {
+    if (!subscription?.id) {
+      toast.error('Nenhuma assinatura ativa encontrada.');
+      return;
+    }
 
-      if (!access) {
-        setLoading(false);
-        return;
-      }
+    const confirmCancel = window.confirm('Tem certeza que deseja cancelar sua assinatura? Você continuará com acesso até o final do período faturado.');
+    if (!confirmCancel) return;
 
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('entity_id', access.entity_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (sub) setSubscription(sub);
-      setLoading(false);
-    };
-
-    fetchSubscription();
-  }, [user]);
-
-  const handleCancel = async () => {
-    if (!subscription) return;
-    setCancelling(true);
-
+    setIsCanceling(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       
@@ -81,10 +42,7 @@ export default function Billing() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionData.session?.access_token}`
         },
-        body: JSON.stringify({
-          subscriptionId: subscription.id,
-          mercadoPagoSubscriptionId: subscription.mercado_pago_subscription_id,
-        }),
+        body: JSON.stringify({ subscriptionId: subscription.id }),
       });
 
       if (!response.ok) {
@@ -92,139 +50,121 @@ export default function Billing() {
         throw new Error(errorData.error || 'Erro ao cancelar assinatura');
       }
 
-      toast.success('Assinatura cancelada. Você mantém acesso até o fim do ciclo atual.');
-      setSubscription((prev) => prev ? { ...prev, status: 'cancelled' } : null);
-      setCancelOpen(false);
+      await refreshUser();
+      toast.success('Assinatura cancelada. O acesso continuará até o fim do período.');
     } catch (error: any) {
+      console.error('Cancel error:', error);
       toast.error(error.message || 'Erro ao cancelar assinatura');
     } finally {
-      setCancelling(false);
+      setIsCanceling(false);
     }
   };
 
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'authorized':
-        return <Badge className="bg-green-100 text-green-800">Ativa</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-100 text-red-800">Cancelada</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  if (loading) {
+  if (authLoading || pageLoading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </MainLayout>
     );
   }
 
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing';
+  const isCanceled = subscription?.cancelAtPeriodEnd;
+  const endDate = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR') : '';
+
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-2xl">
+      <div className="container max-w-4xl py-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Assinatura</h1>
-          <p className="text-muted-foreground">Gerencie seu plano e cobrança</p>
+          <h1 className="text-3xl font-bold tracking-tight">Faturamento & Assinatura</h1>
+          <p className="text-muted-foreground">Gerencie seu plano e método de pagamento.</p>
         </div>
 
-        {subscription ? (
+        {isCanceled && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Assinatura Cancelada</AlertTitle>
+            <AlertDescription>
+              Sua assinatura foi cancelada, mas você ainda tem acesso até o dia {endDate}.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="capitalize">Plano {subscription.plan_name}</CardTitle>
-                  <CardDescription>Detalhes da sua assinatura</CardDescription>
-                </div>
-                {statusLabel(subscription.status)}
-              </div>
+              <CardTitle>Plano Atual</CardTitle>
+              <CardDescription>Informações sobre sua assinatura atual</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Valor</p>
-                    <p className="font-semibold">R$ {Number(subscription.price).toFixed(2)}/mês</p>
-                  </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-lg">Plano Pro</p>
+                  <p className="text-sm text-muted-foreground">R$39,00 / mês</p>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Próxima cobrança</p>
-                    <p className="font-semibold">
-                      {subscription.next_billing_date
-                        ? format(new Date(subscription.next_billing_date), 'dd/MM/yyyy')
-                        : subscription.trial_end
-                        ? format(new Date(subscription.trial_end), 'dd/MM/yyyy')
-                        : '—'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Desde</p>
-                    <p className="font-semibold">
-                      {format(new Date(subscription.created_at), 'dd/MM/yyyy')}
-                    </p>
-                  </div>
-                </div>
+                {isActive && !isCanceled ? (
+                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    Ativo
+                  </span>
+                ) : isCanceled ? (
+                   <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+                    Cancelado
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">
+                    Inativo
+                  </span>
+                )}
               </div>
 
-              {subscription.status !== 'cancelled' && (
-                <div className="pt-4 border-t">
-                  <Button variant="destructive" onClick={() => setCancelOpen(true)}>
-                    Cancelar assinatura
-                  </Button>
-                </div>
-              )}
-
-              {subscription.status === 'cancelled' && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                  <AlertTriangle className="h-4 w-4" />
-                  Assinatura cancelada. Acesso mantido até o fim do ciclo de cobrança.
+              {isActive && endDate && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Próxima cobrança: </span>
+                  <span className="font-medium">{endDate}</span>
                 </div>
               )}
             </CardContent>
+            <CardFooter className="flex justify-between border-t px-6 py-4">
+              {isActive && !isCanceled ? (
+                <Button variant="destructive" onClick={handleCancelSubscription} disabled={isCanceling}>
+                  {isCanceling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Cancelar Assinatura'}
+                </Button>
+              ) : isCanceled ? (
+                 <Button variant="outline" onClick={() => navigate('/plano')}>
+                  Reativar Assinatura
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/plano')}>
+                  Escolher Plano
+                </Button>
+              )}
+            </CardFooter>
           </Card>
-        ) : (
+
           <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">Nenhuma assinatura encontrada.</p>
-              <Button className="mt-4" onClick={() => navigate('/plano')}>
-                Escolher um plano
-              </Button>
+            <CardHeader>
+              <CardTitle>Método de Pagamento</CardTitle>
+              <CardDescription>O cartão utilizado para cobranças</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center py-6 text-center space-y-4">
+               {subscription?.paymentMethod ? (
+                 <div className="flex items-center gap-2 text-lg font-medium">
+                   <CreditCard className="h-5 w-5 text-primary" />
+                   Cartão de Crédito
+                 </div>
+               ) : (
+                 <>
+                  <CreditCard className="h-10 w-10 text-muted-foreground/50 mb-2" />
+                  <p className="text-muted-foreground">Nenhum método de pagamento cadastrado.</p>
+                 </>
+               )}
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
-
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancelar assinatura</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja cancelar sua assinatura? Você manterá acesso ao sistema até o fim do ciclo de cobrança atual.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Manter assinatura
-            </Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
-              {cancelling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Confirmar cancelamento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   );
 }
