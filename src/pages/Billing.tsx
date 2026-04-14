@@ -34,20 +34,14 @@ export default function Billing() {
 
     setIsCanceling(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/cancel-subscription`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionData.session?.access_token}`
-        },
-        body: JSON.stringify({ subscriptionId: subscription.id }),
+      // Usando o método nativo do Supabase para chamar a Edge Function
+      const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+        body: { subscriptionId: subscription.id }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao cancelar assinatura');
+      // O Supabase retorna o erro dentro do objeto, precisamos checar
+      if (error) {
+        throw new Error(error.message || 'Erro ao cancelar assinatura na API');
       }
 
       await refreshUser();
