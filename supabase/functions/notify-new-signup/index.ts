@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Função para garantir que o número tenha apenas dígitos e comece com 55 (Brasil)
+function formatPhoneBR(phone: string) {
+  let cleaned = phone.replace(/\D/g, ''); // Remove tudo que não for número (parênteses, traços, espaços)
+  
+  // Se o número tiver 10 ou 11 dígitos (apenas DDD + Número), adiciona o 55 na frente
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    cleaned = '55' + cleaned;
+  }
+  
+  return cleaned;
+}
+
 async function sendWhatsAppMessage(phone: string, message: string) {
   const uazapiUrl = Deno.env.get('UAZAPI_URL');
   const uazapiToken = Deno.env.get('UAZAPI_TOKEN');
@@ -33,7 +45,7 @@ async function sendWhatsAppMessage(phone: string, message: string) {
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
     return true;
   } catch (error) {
-    console.error('Erro ao enviar WhatsApp:', error);
+    console.error(`Erro ao enviar WhatsApp para ${phone}:`, error);
     return false;
   }
 }
@@ -54,17 +66,27 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const adminPhone = '5585981631652';
+    // 1. Formata o número do cliente (Adiciona o 55 automaticamente se faltar)
+    const formattedClientPhone = formatPhoneBR(userPhone);
+    const adminPhone = '558581631652';
 
-    const messageText = `🎉 *Novo Cliente Registrado!*\n\n` +
+    // 2. Prepara a mensagem do Admin
+    const adminMessageText = `🎉 *Novo Cliente Registrado!*\n\n` +
                         `*Nome:* ${userName}\n` +
                         `*Empresa:* ${companyName}\n` +
-                        `*Telefone do Cliente:* ${userPhone}`;
+                        `*Telefone do Cliente:* ${formattedClientPhone}`;
 
-    await sendWhatsAppMessage(adminPhone, messageText);
+    // 3. Prepara a mensagem de Boas-Vindas para o Cliente
+    const clientMessageText = `Olá, ${userName}! 🎉\n\n` +
+                        `Sua conta no *VirtusControl* foi criada com sucesso para a empresa *${companyName}*.\n\n` +
+                        `Seja muito bem-vindo(a)! Se precisar de ajuda para dar os primeiros passos, é só chamar.`;
+
+    // 4. Envia as duas mensagens
+    await sendWhatsAppMessage(adminPhone, adminMessageText);
+    await sendWhatsAppMessage(formattedClientPhone, clientMessageText);
 
     return new Response(
-      JSON.stringify({ success: true, message: "Webhook executado" }),
+      JSON.stringify({ success: true, message: "Mensagens enviadas com sucesso" }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
