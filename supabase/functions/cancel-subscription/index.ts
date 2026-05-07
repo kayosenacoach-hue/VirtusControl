@@ -32,13 +32,51 @@ serve(async (req) => {
       throw new Error('O ID da assinatura é obrigatório');
     }
 
-    // Como não usamos Stripe, atualizamos APENAS a base de dados local!
-    // Marcamos para cancelar no fim do período (ou pode alterar para status: 'canceled' se quiser corte imediato)
+    // 1. Buscar o ID da assinatura do Mercado Pago na base de dados
+    const { data: subscription, error: fetchError } = await supabaseClient
+      .from('subscriptions')
+      .select('mercado_pago_subscription_id')
+      .eq('id', subscriptionId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !subscription) {
+      throw new Error('Assinatura não encontrada ou sem permissão');
+    }
+
+    const mpSubscriptionId = subscription.mercado_pago_subscription_id;
+
+    // 2. Comunicar com o Mercado Pago para cancelar a cobrança na operadora
+    if (mpSubscriptionId) {
+      const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+      if (!mpToken) throw new Error('Token do Mercado Pago não configurado no servidor');
+
+      // A API de assinaturas do MP usa o endpoint /preapproval/
+      const mpResponse = await fetch(`https://api.mercadopago.com/preapproval/${mpSubscriptionId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${mpToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'cancelled' })
+      });
+
+      if (!mpResponse.ok) {
+        const errorData = await mpResponse.json();
+        console.error('Erro retornado pelo Mercado Pago:', errorData);
+        throw new Error('Não foi possível cancelar a assinatura na operadora de pagamento.');
+      }
+    }
+
+    // 3. Atualizar a base de dados local confirmando o cancelamento
     const { error: updateError } = await supabaseClient
       .from('subscriptions')
-      .update({ cancel_at_period_end: true })
+      .update({ 
+        cancel_at_period_end: true,
+        status: 'canceled' // Atualiza o status localmente para refletir o cancelamento
+      })
       .eq('id', subscriptionId)
-      .eq('user_id', user.id); // Segurança: garante que só cancela se for o dono
+      .eq('user_id', user.id); 
 
     if (updateError) {
        console.error('Erro ao atualizar a base de dados:', updateError);
